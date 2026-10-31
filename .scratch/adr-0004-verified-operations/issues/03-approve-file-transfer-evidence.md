@@ -47,3 +47,9 @@ No application implementation, source acceptance text, unrelated ADR decisions, 
 ## Comments
 
 On 2026-10-31 the operator rejected cooperative-only candidate F and retained the full published path/symlink race safety. No file mutation or download proof policy is approved. Repeated metadata reads, hashes, REALPATH, final rechecks, posix-rename, consent and local locks cannot supply atomic no-follow confinement or conditional replacement. No helper, new privilege mechanism or remote lock is authorized. This ticket and transitively blocked whole-ticket 07/08/09/10/11, E3:06 and E6:04 remain needs-info. EnabledMutation contains only the six approved S service cases; DownloadProofApproval stays empty. All source criteria remain required, not waived or passed.
+
+The operator subsequently authorized bounded design and isolated proof of a specified one-shot login-user capability-aware SFTP endpoint over system OpenSSH. This supersedes the earlier no-helper clause only for design work, not deployment or feature enablement. Persistent agents, root editors and remote locks remain excluded.
+
+The operator selected only the reviewed objects as the namespace-mutation subjects. A replacement object at the same name is not authorized. Cooperative-only F and directory-entry semantics remain rejected. Standard unlinkat and pathname rename do not enforce an expected reviewed-object identity; helper permission alone does not resolve that mechanism gap or verified staging-object promotion. No atomic content-version CAS or coherent snapshot requirement is added.
+
+These two inputs are recorded, but this ticket's three decision acceptance criteria remain unchecked. Complete per-type proof, read-only Reconciliation, safe enforcement and download policy still require resolution before approval or implementation. No file mutation or download authority is issued.
