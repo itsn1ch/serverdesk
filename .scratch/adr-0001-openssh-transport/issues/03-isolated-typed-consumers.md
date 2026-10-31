@@ -1,6 +1,6 @@
 # 03: Carry isolated typed SFTP Operation and Collector consumers
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 02: Connect and authenticate one shared master with independent terminals.
 **External blockers:** ADR-0006:01, ADR-0004:04.
 **Source:** US-001-AC3, US-009-AC1, US-009-AC2, US-009-AC3, US-009-AC4, US-010-AC1, US-010-AC2, US-010-AC3, US-010-AC4, US-011-AC1, US-011-AC2, US-011-AC3, US-011-AC4.
@@ -177,3 +177,7 @@ Any changed Cargo manifest/dependency wiring is exercised by these affected test
 - ADR-0002 inventory/import/generated policy, ADR-0003 trust eligibility/acceptance, ADR-0004 Verifier/Audit Trail/outcomes, ADR-0005 metric/backoff policy and ADR-0006 primary/admission/lease state remain with their canonical owners.
 - Never add a second SSH library, arbitrary public launch/command API, privileged root shell, secret persistence, user-config runtime fallback, automatic mutation replay or orphan adoption.
 - Preserve the original source specification and accepted ADRs; this is implementation of the appended Design, not a license to change product policy.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.

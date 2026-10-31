@@ -56,16 +56,16 @@ Canonical declarations are introduced by ADR-0006:01 in the same owner modules, 
 
 ## Order
 
-Human decisions01/02/03 may run in parallel.
+Human decisions01 L1 and02 S are approved. File decision03 remains needs-info after cooperative F was rejected.
 Actual audit/recovery and early readable wrappers:04.
 Local trust precursor:01 + 04 + E3:03/E6:03 →05 (no transport or E3 commit prerequisite).
 Remote read branch:04 + E1:03 →06. It needs no service or file mutation policy, but awaits the transport's trust prerequisites.
 Public plan/execution/files:05/06 +02/03 →07 →08 →09.
 Cancellation/recovery/presentation:08/09 →10 →11.
 
-- 01: Approve local trust lifecycle and evidence policy.
-- 02: Approve six service Verifier and Reconciliation policies.
-- 03: Approve per-type file and transfer evidence policies.
+- 01 has approved L1. Publication role stays ready-for-human; decision ACs are checked, runtime implementation is pending.
+- 02 has approved S for exactly six service verbs. Publication role stays ready-for-human; decision ACs are checked, runtime implementation is pending.
+- 03 remains needs-info. No file mutation or download proof is approved; retain full race safety.
 - 04: Inspect permanent audit and durably recover interrupted Operations.
 - 05: Review and admit local trust Operations before effects.
 - 06: Inspect Services and bounded file-opening evidence without mutation privilege.
@@ -77,4 +77,8 @@ Cancellation/recovery/presentation:08/09 →10 →11.
 
 ## In plain words
 
-First, we must agree on how each kind of change can be proven to work. Meanwhile, we can build a permanent record and show interrupted work honestly. Trust changes can be reviewed against saved keys before a connection exists, with their consent and execution record kept together. You can inspect services and open a small text file without permission to change them. Approved service and file changes then show the exact target and impact before you confirm them, while downloading stays read-only on the server. Cancellation and connection loss never pretend a change was undone. Later investigation reads the current state without repeating the change. The screens remain usable while work finishes and the app shuts down safely.
+L1 trust and S service evidence policies are approved. The file and download policy is still unresolved. Meanwhile, we can build a permanent record and show interrupted work honestly. Trust changes can be reviewed against saved keys before a connection exists, with their consent and execution record kept together. You can inspect services and open a small text file without permission to change them. Approved service and file changes then show the exact target and impact before you confirm them, while downloading stays read-only on the server. Cancellation and connection loss never pretend a change was undone. Later investigation reads the current state without repeating the change. The screens remain usable while work finishes and the app shuts down safely.
+
+## Comments
+
+04/05/06 are ready-for-agent after real declared dependencies. Whole tickets 07/08/09/10/11 stay needs-info through 03; approval of S does not remove the existing shared planner dependency or reduce ticket scope. EnabledMutation has exactly six service cases; LocalTrustApproval has exactly Accept, Replace and Delete. DownloadProofApproval stays empty. All source criteria remain required. No policy record is an application pass.

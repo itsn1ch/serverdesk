@@ -46,7 +46,7 @@ No new public functions. Privately deepen `Trust::review` and optional-route fa�
 | INV-1 | Host Key reads and migrations use authoritative SQLite fields with UUID identities, enabled foreign keys and preserved public evidence; failures never fabricate NONE or truncate data. | preserve  | Future test `trust_authoritative_store_migration`; first proof owner 01        |
 | INV-2 | Review, drift, discovery, connectivity and generated-file edits never accept, replace, delete or promote authoritative Host Keys.                                                       | preserve  | Future test `trust_readonly_review_provenance`; first proof owner 03           |
 | INV-3 | Verified evidence requires exact independent complete SHA256 comparison; Adoption and TOFU retain their distinct provenance and cannot imply Verified.                                  | preserve  | Future test `trust_exact_fingerprint_evidence`; first proof owner 03           |
-| INV-4 | NONE, MISMATCH and unresolved Direct/Jump eligibility cannot produce TrustStart or authorize a master.                                                                                  | preserve  | Future test `trust_prestart_absent_mismatch_eligibility`; first proof owner 04 |
+| INV-4 | NONE, MISMATCH and T3 role-ineligible accepted keys cannot produce TrustStart or authorize a master.                                                                                    | preserve  | Future test `trust_prestart_absent_mismatch_eligibility`; first proof owner 04 |
 | INV-5 | Each positive start owns its original resolution/reservation and a fresh atomic SQLite-derived matching snapshot; failed regeneration never uses an old file.                           | preserve  | Future test `trust_atomic_snapshot_handback`; first proof owner 04             |
 | INV-6 | Only explicit engine-admitted trust changes can commit, and each key delta/read-back plus its E4-authored event and ordinal commit atomically at expected state/tail without secrets.   | preserve  | Future test `trust_atomic_local_audit_commit`; first proof owner 05            |
 | INV-7 | Routed discovery executes on the registered already-permitted Jump generation and never falls back locally or inherits target trust.                                                    | establish | Future test `trust_registered_jump_discovery`; first proof owner 06            |
@@ -64,7 +64,7 @@ Routed review plus final public GTK trust decision: private routed enhancement a
 - In: `TrustCommitFacts` ← 05
 - Out: `TrustReview` → final
 
-External producers: ADR-0006:01 supplies declarations only; ADR-0001:04 produces actual registered RouteAccess/generations. ADR-0004:08 produces actual public plan/decide execution integration (planning ADR-0004:07), reusing the SAME ADR-0004:05 local stages and real E3:05 commit. Local 04 is the trust/prefix-gate prerequisite; local 05 supplies atomic key/audit facts. Some(routes) reassembly retains the same TrustCore. Unresolved human eligibility/local policy keeps affected actions unavailable, never fakes a successful decision.
+External producers: ADR-0006:01 supplies declarations only; ADR-0001:04 produces actual registered RouteAccess/generations. ADR-0004:08 produces actual public plan/decide execution integration (planning ADR-0004:07), reusing the SAME ADR-0004:05 local stages and real E3:05 commit. Local 04 is the trust/prefix-gate prerequisite; local 05 supplies atomic key/audit facts. Some(routes) reassembly retains the same TrustCore. Unimplemented producers and the transitive file-policy 03 gate keep the whole public journey unavailable, never fakes a successful decision.
 
 ## Steps
 
@@ -119,3 +119,17 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add automatic acceptance/promotion/synchronization, remote shell trust mutation, direct unaudited HostKey writes, fake capability constructors, or a second trust/audit owner.
+
+## Comments
+
+T3 is approved after the explicit correction 3, VERIFIED Jump only, overriding T2. L1 is separately approved. This ticket still remains needs-info because public workflow E4:08 depends on 07 and the unresolved file-policy 03. Neither policy approval nor backend 05 completes the full GTK journey.
+
+| Accepted category               | Direct | Jump  |
+| ------------------------------- | ------ | ----- |
+| VERIFIED                        | Allow  | Allow |
+| ADOPTED                         | Allow  | Block |
+| Explicitly committed UNVERIFIED | Allow  | Block |
+| MISMATCH                        | Block  | Block |
+| NONE                            | Block  | Block |
+
+Every registered hop must independently pass Jump membership before carrying discovery; the target uses Direct membership without inheriting hop evidence. Current matching accepted-key preflight, original binding and fresh atomic SQLite snapshot remain required. Role-ineligible accepted keys report HostKeyUntrusted; mismatch reports HostKeyMismatch. Discovery and dialog acknowledgement create no acceptance or permission.

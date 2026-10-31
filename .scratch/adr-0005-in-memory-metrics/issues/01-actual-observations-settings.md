@@ -1,6 +1,6 @@
 # 01: Collect actual observations with persisted validated settings
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** None (can start immediately once external blockers land).
 **External blockers:** ADR-0006:01, ADR-0006:02, ADR-0001:03, ADR-0004:06, ADR-0002:01.
 **Source:** US-001-AC1, US-001-AC2, US-001-AC3, US-001-AC4, US-001-AC5, US-002-AC1, US-002-AC2, US-002-AC3, US-002-AC4, US-003-AC1, US-003-AC2, US-003-AC3, US-003-AC4, US-003-AC5, US-004-AC1, US-004-AC2, US-004-AC3, US-004-AC4.
@@ -191,3 +191,7 @@ Any changed Cargo manifest/dependency wiring is exercised by these affected test
 - E1 owns masters and authentication; E2 inventory identity, E3 trust, E4 administrative evidence/outcomes and E6 admission/storage remain foreign owner state.
 - No persistent sample/history store, remote agent/daemon, autonomous Connect, mutation authority, fabricated zero, gap interpolation, inferred downtime, undocumented numeric tuning policy or unsupported benchmark claim.
 - Preserve the original source specification and accepted ADRs; this is implementation of the appended Design, not a license to change product policy.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.

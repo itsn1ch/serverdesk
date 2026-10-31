@@ -1,6 +1,6 @@
 # 03: Approve per-type file and transfer evidence policies
 
-**Status:** ready-for-human
+**Status:** needs-info
 **Blocked by:** None (can start immediately)
 **External blockers:** None
 **Source:** US-011-AC1, US-011-AC2, US-011-AC3, US-011-AC4, US-011-AC5, US-012-AC1, US-012-AC2, US-012-AC3, US-012-AC4, US-012-AC5
@@ -19,7 +19,7 @@ Approve separate complete policies for file/directory creation, write/edit, dele
 
 ## Acceptance criteria
 
-Runtime context delivered by implementation09/10, not required to complete this policy:
+Runtime context delivered by implementation 09/10, not required to complete this policy:
 
 > `US-011-AC1`: Given file write/edit, delete, rename, chmod or upload overwriting a file, when I initiate the change, then it passes through the Operation engine with its own Verifier and read-only Reconciliation policy before that mutation type is enabled.
 > `US-011-AC2`: Given an SSH user without write permission, when a file mutation is requested, then the file is read-only or the request is rejected with a clear reason; no privileged file-editing fallback is offered in MVP.
@@ -43,3 +43,7 @@ Future approval gate: human review of the complete predicates, uncertainty rules
 ## Do not touch
 
 No application implementation, source acceptance text, unrelated ADR decisions, arbitrary commands, privileged editor, remote locks or numeric policies selected by an agent.
+
+## Comments
+
+On 2026-10-31 the operator rejected cooperative-only candidate F and retained the full published path/symlink race safety. No file mutation or download proof policy is approved. Repeated metadata reads, hashes, REALPATH, final rechecks, posix-rename, consent and local locks cannot supply atomic no-follow confinement or conditional replacement. No helper, new privilege mechanism or remote lock is authorized. This ticket and transitively blocked whole-ticket 07/08/09/10/11, E3:06 and E6:04 remain needs-info. EnabledMutation contains only the six approved S service cases; DownloadProofApproval stays empty. All source criteria remain required, not waived or passed.

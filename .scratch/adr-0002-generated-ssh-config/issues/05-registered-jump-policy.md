@@ -1,6 +1,6 @@
 # 05: Generate only registered complete Jump Server routes
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Read saved inventory and resolve complete Connection Identities, 03: Save reference-only settings and import an explicit static whitelist, 04: Generate and self-check isolated direct-start and attachment policy.
 **External blockers:** ADR-0006:01.
 **Source:** `US-004-AC1`, `US-004-AC2`, `US-004-AC3`, `US-004-AC4`, `US-004-AC5`, `US-007-AC3`, `US-005-AC2`.
@@ -90,3 +90,7 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add recursive Include/re-import/diff, arbitrary OpenSSH evaluation, direct Store-vector writes, implicit Adoption or a second launch API.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.

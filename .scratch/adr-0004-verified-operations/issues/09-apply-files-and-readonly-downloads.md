@@ -58,7 +58,7 @@ No new public functions. Deepen the existing `OperationEngine::plan_operation` a
 
 ## Flow
 
-Plan/dispatch flow4 steps6–8; private file executor and separate read-only download admission refinements.
+Plan/dispatch flow 4 steps 6–8; private file executor and separate read-only download admission refinements.
 
 - In: `ExecutionPermit` ← 08
 - Out: `Transfer` → 10
@@ -103,3 +103,7 @@ Use isolated Incus/LXD Ubuntu 24.04 with systemd255, sshd, non-root user, granul
 ## Do not touch
 
 Do not duplicate functions owned by another local/foreign introducing ticket. No generic proof fallback, invented human policy, second trust workflow, terminal-command audit, full file browser, privileged editing, remote lock, automatic mutation retry or audit deletion/reset. Early views and observations cannot mint authority; the actual scope data grants no permission.
+
+## Comments
+
+E4:01 L1 and E4:02 S decisions are approved and remain separate from runtime acceptance. Consume the complete canonical L1/S case, proof, interruption and Reconciliation tables, not a generic success predicate. Exactly six service variants exist in EnabledMutation; LocalTrustApproval has exactly Accept, Replace and Delete. Each private case is selected only within the original OperationRequest, identity, plan revision, evidence, consent and lease context. No public property or dialog mints authority. File policy 03 remains needs-info after rejection of cooperative F. This whole ticket remains needs-info through its listed file-policy dependency chain. No file variant or download proof case is approved. All source criteria and first Proof owners are retained; unavailable controls do not complete implementation.

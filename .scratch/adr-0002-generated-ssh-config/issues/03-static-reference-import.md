@@ -1,6 +1,6 @@
 # 03: Save reference-only settings and import an explicit static whitelist
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Read saved inventory and resolve complete Connection Identities, 02: Human policy decision.
 **External blockers:** ADR-0006:01.
 **Source:** `US-006-AC1`, `US-006-AC2`, `US-006-AC3`, `US-006-AC4`, `US-006-AC5`, `US-007-AC1`, `US-007-AC2`, `US-007-AC3`, `US-007-AC4`, `US-007-AC5`, `US-007-AC6`, `US-008-AC1`, `US-008-AC2`, `US-008-AC3`, `US-008-AC4`, `US-008-AC5`, `US-008-AC6`, `US-009-AC1`, `US-009-AC2`, `US-009-AC3`, `US-009-AC4`, `US-010-AC1`, `US-010-AC2`, `US-010-AC3`, `US-010-AC4`, `US-010-AC5`, `US-010-AC6`.
@@ -8,7 +8,7 @@
 
 ## Goal
 
-After human 02 defines environment variants/default/validation, save non-secret references and explicitly import supported settings into an independent durable inventory snapshot. Until then Server creation/import is unavailable with the exact missing-policy reason; exclusions are not misreported as saved Servers.
+Implement approved E1 while saving non-secret references and explicitly importing supported settings into an independent durable inventory snapshot. Enforce exact closed environment validation and byte-preserving legacy reads; exclusions are not misreported as saved Servers.
 
 ## Types
 
@@ -16,6 +16,7 @@ After human 02 defines environment variants/default/validation, save non-secret 
 ConfigurationChange // from ADR-0006:01
 ConfigurationResult // from ADR-0006:01
 ServerDraft // from ADR-0006:01
+ClosedEnvironment // from ADR-0006:01
 AuthProfileDraft // from ADR-0006:01
 Server // from ADR-0006:01
 AuthProfile // from ADR-0006:01
@@ -36,19 +37,20 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 
 - **Intent.** Commit supported reference-only connection settings and explicit static imports without executing source behavior.
 - **Where.** `src/application/configuration.rs`.
-- **Pre.** Fields and existing references validate; routes are finite/registered; human-approved environment variants/default/validation exist before new Server saves/imports.
+- **Pre.** Fields and existing references validate; routes are finite/registered; approved E1 ClosedEnvironment validation governs all new Server saves/imports.
 - **Post.** Configuration alone creates a private InventoryCommit after validation; one Store transaction compares revision and persists supported data. Static Rust import accepts only HostName, Port, User, IdentityFile, IdentitiesOnly, ProxyJump and accepted key-algorithm/cipher settings; rejects dynamic/unsupported semantics with located reasons, never reads Include targets, preserves source files and known_hosts, creates no trust/SSH and defaults imported connect_on_startup to false. GTK results distinguish committed settings, exclusions, empty, loading, stale and failed states.
-- **Errors.** ValidationError, UnregisteredProxyRoute, ConfigurationConflict, unresolved environment UnsupportedCapability or StorageError leaves rejected changes unsaved. A parse report cannot claim uncommitted Servers. Ambiguous delivery is reported honestly, not retried automatically.
+- **Errors.** ValidationError, UnregisteredProxyRoute, ConfigurationConflict, StorageError leaves rejected changes unsaved. A parse report cannot claim uncommitted Servers. Ambiguous delivery is reported honestly, not retried automatically.
 - **Idempotency.** Same-ID/content saves do not duplicate. Each explicit import is a new snapshot import, not re-import/diff. Crash yields all-or-none transaction; inspect actual state after ambiguity.
 
 ## Invariants
 
-| ID    | Statement                                                                                                                                                                   | Role      | Proof                                                                          |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------ |
-| INV-1 | Inventory reads return only actual committed SQLite snapshots and never perform SSH or turn storage failure into empty success.                                             | preserve  | Future test `configuration_inventory_real_store_failure`; first proof owner 01 |
-| INV-2 | ConnectionIdentity includes every effective target/hop host, port, user and authentication context; metadata aliases cannot change equality and route resolution is finite. | preserve  | Future test `configuration_complete_identity_resolution`; first proof owner 01 |
-| INV-3 | Only Configuration-created InventoryCommit can persist validated reference-only changes, atomically at its expected revision and without secrets.                           | establish | Future test `configuration_atomic_reference_commit`; first proof owner 03      |
-| INV-4 | Import never evaluates commands, reads Include targets, rewrites originals, synchronizes snapshots or accepts Host Keys.                                                    | establish | Future test `configuration_static_import_isolation`; first proof owner 03      |
+| ID    | Statement                                                                                                                                                                   | Role      | Proof                                                                                       |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| INV-1 | Inventory reads return only actual committed SQLite snapshots and never perform SSH or turn storage failure into empty success.                                             | preserve  | Future test `configuration_inventory_real_store_failure`; first proof owner 01              |
+| INV-2 | ConnectionIdentity includes every effective target/hop host, port, user and authentication context; metadata aliases cannot change equality and route resolution is finite. | preserve  | Future test `configuration_complete_identity_resolution`; first proof owner 01              |
+| INV-3 | Only Configuration-created InventoryCommit can persist validated reference-only changes, atomically at its expected revision and without secrets.                           | establish | Future test `configuration_atomic_reference_commit`; first proof owner 03                   |
+| INV-4 | Import never evaluates commands, reads Include targets, rewrites originals, synchronizes snapshots or accepts Host Keys.                                                    | establish | Future test `configuration_static_import_isolation`; first proof owner 03                   |
+| INV-7 | Every newly saved environment maps to ClosedEnvironment; inventory preserves legacy bytes and never silently normalizes another row.                                        | establish | Future test `configuration_closed_environment_and_legacy_preservation`; first proof owner03 |
 
 Only the establishing owner writes each first proof. Every preserved first proof is a local blocker ancestor. Later whole-flow proofs are explicitly downstream integration gates, not claims that an earlier ticket already proves a future surface.
 
@@ -61,7 +63,7 @@ Save/import: all steps; registered-route import data for 05.
 - Out: `ImportReport` → 05
 - Out: `ConfigurationResult` → final
 
-External producer and gate details: ADR-0006:01 is the declaration and physical Store producer. Local 01 provides actual snapshots; human 02 supplies the missing exact environment policy. Runtime issuance of InventoryCommit is ONLY this ticket, not E6 declaration creation.
+External producer and gate details: ADR-0006:01 is the declaration and physical Store producer. Local 01 provides actual snapshots; human 02 has approved exact E1 environment policy. Runtime issuance of InventoryCommit is ONLY this ticket, not E6 declaration creation.
 
 ## Steps
 
@@ -121,3 +123,7 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add recursive Include/re-import/diff, arbitrary OpenSSH evaluation, direct Store-vector writes, implicit Adoption or a second launch API.
+
+## Comments
+
+E1 is approved in canonical E2 Design. ClosedEnvironment has exactly Unspecified, Development, Test, Staging and Production, serialized as unspecified, development, test, staging and production. The UI and static import default to Unspecified. ServerDraft keeps raw boundary input but every newly stored value must validate through ClosedEnvironment. Reject explicit null, empty, whitespace, aliases, wrong case and unknown strings without coercion. Preserve existing raw observations and require explicit valid selection when saving a legacy Server. No public signature or protocol omission rule changes. Establish INV-7 with configuration_closed_environment_and_legacy_preservation here; preserve existing inventory read proof in 01. Readiness means policy-complete assignment with declared prerequisites, not implemented or runtime accepted.

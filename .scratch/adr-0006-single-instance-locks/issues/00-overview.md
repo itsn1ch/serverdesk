@@ -68,7 +68,7 @@ Shared declarations + five pure canonical Store projections + actual primary/sto
 Actual orphan/durable recovery admission:01 →02.
 Identity/resource arbitration:02 →03.
 Full desktop/separate reconnect feeds/shutdown:02/03 + real foreign owners →04.
-01–03 need no mutation policy to implement their honest behavior;04 remains needs-info under transitive unresolved policies.
+01–03 need no mutation policy for their honest behavior. E1, T3, L1 and S are approved; 04 remains needs-info through unresolved file-policy 03 and its E3:06/E4:11 consumers.
 
 - 01: Establish sole primary, compatible SQLite and preadmission runtime.
 - 02: Admit only after actual orphan cleanup and durable Unknown recovery.
@@ -78,3 +78,7 @@ Full desktop/separate reconnect feeds/shutdown:02/03 + real foreign owners →04
 ## In plain words
 
 First, one copy of the app becomes the owner and opens the real saved data. A second launch cannot create another owner or disturb ongoing work. Before connecting, the app clears its own leftover connections and records interrupted changes as unresolved. It prevents two of its changes from using the same resource at once without blocking unrelated work. Rejected changes never start later on their own. The final desktop listens for real reconnects and investigates uncertain changes by reading only. On exit, it waits for owned work to finish before closing connections and saved data. Recovery, errors and unresolved outcomes stay visible while the desktop remains usable.
+
+## Comments
+
+Policy decision completion does not issue ReadyOwnership, cleanup/recovery reports, trust snapshots, leases or runtime capabilities. L1 supplies an explicit local-only recovery exception after durable interrupted Unknown and actual worker/SQLite settlement; remote operations retain gated reconnect. File policy03 remains independent and all 360 source criteria remain required.

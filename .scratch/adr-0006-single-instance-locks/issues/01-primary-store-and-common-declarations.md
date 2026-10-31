@@ -432,6 +432,8 @@ pub struct AuthProfileDraft {
 }
 
 // src/domain/inventory.rs
+pub enum ClosedEnvironment { Unspecified, Development, Test, Staging, Production }
+// src/domain/inventory.rs
 pub struct Server {
     pub id: Uuid,
     pub name: String,
@@ -1213,10 +1215,12 @@ pub struct OperationChanged {
 pub struct OperationEngine { tx: mpsc::Sender<OperationMessage> }
 
 // src/application/operations.rs
-pub(crate) enum EnabledMutation {}
+pub(crate) enum EnabledMutation {
+    ServiceStart, ServiceStop, ServiceRestart, ServiceReload, ServiceEnable, ServiceDisable,
+}
 
 // src/application/operations.rs
-pub(crate) enum LocalTrustApproval {}
+pub(crate) enum LocalTrustApproval { Accept, Replace, Delete }
 
 // src/application/operations.rs
 pub(crate) struct ExecutionPermit {
@@ -1993,7 +1997,7 @@ These are exact data declarations from the final six Design Types blocks, exclud
 - **Intent.** Execute one owner-authorized domain persistence transaction faithfully.
 - **Where.** `src/infrastructure/storage/mod.rs`.
 - **Pre.** Open primary Store; matching request/response variant; batch created by authorized semantic owner; FK and expected-state constraints hold.
-- **Post.** Read returns actual committed data. Inventory and settings writes accept only Configuration-created InventoryCommit and Monitoring-created SettingsCommit, never caller-built observation vectors. Store uses InventoryCommit::inventory_write_view and SettingsCommit::settings_write_view only after receiving the sealed requests. Inventory/settings/audit append uses all-or-nothing transaction. CommitLocalTrust compares expected keys/tail, applies E3 key changes, reads back and appends the E4 committed-change fact in one transaction. Audit UPDATE/DELETE are unavailable. Validate ordinal 1 for a first fact and contiguous following ordinals per Operation, exact event UUID/content and expected AuditTail inside the transaction; ordinal lives only in existing sanitized_payload. Fold by validated ordinal, never SQL rowid/time/UUID. Local trust returns its exact committed ordinal. Missing/duplicate/noncontiguous/conflicting positions roll back the entire request.
+- **Post.** Read returns actual committed data. Inventory and settings writes accept only Configuration-created InventoryCommit and Monitoring-created SettingsCommit, never caller-built observation vectors. Store uses InventoryCommit::inventory_write_view and SettingsCommit::settings_write_view only after receiving the sealed requests. Inventory/settings/audit append uses all-or-nothing transaction. CommitLocalTrust compares expected keys/tail, applies E3 key changes, reads back and appends the E4 committed-change fact in one transaction. Audit UPDATE/DELETE are unavailable. Validate ordinal 1 for a first fact and contiguous following ordinals per Operation, exact event UUID/content and expected AuditTail inside the transaction; ordinal lives only in existing sanitized_payload. Fold by validated ordinal, never SQL rowid/time/UUID. Local trust returns its exact committed ordinal. Missing/duplicate/noncontiguous/conflicting positions roll back the entire request. L1 additionally requires complete intended-set read-back before the exact reserved LocalTrustCommitted event, with original Operation/revision/identity/lease and plan-digest bindings. AuditAppend rejects that event outside CommitLocalTrust. A settled attributable paired event proves historical commit even after later audited changes; current rows alone do not. No extra stream, schema or attestation is introduced.
 - **Errors.** Validation/CAS/FK failure or missing, duplicate, noncontiguous or conflicting payload ordinals returns ConfigurationConflict where the submitted batch conflicts; malformed persisted facts, schema/read/write/migration failures return StorageError. Roll back the entire request with no silent truncation or secret/content persistence. Unknown delivery does not authorize blind mutation repeat; reread actual history/tail before another append.
 - **Idempotency.** Reads repeat safely. Owner/event identities make matching append/local commit replay return retained result or conflict, never duplicate effects or consume a new ordinal. Failed/ambiguous append requires actual tail/history read, not an assumed rollback. Explicit Import semantics remain E2’s, not Store inference.
 
@@ -2097,7 +2101,7 @@ These are exact data declarations from the final six Design Types blocks, exclud
 
 ## Flow
 
-Design flow1: actual primary → compatible Store → preadmission Runtime; five imported pure projections precede their Store request uses.
+Design flow 1: actual primary → compatible Store → preadmission Runtime; five imported pure projections precede their Store request uses.
 
 - In: `PrimaryOwnership` ← external
 - Out: `StartupOwnership` → 02
@@ -2144,3 +2148,7 @@ Run actual GTK primary/duplicate registration under a session bus and real SQLit
 ## Do not touch
 
 No foreign semantic writer transfer, future owner constructor, generic proof fallback, remote/distributed lock, persisted lease, new scope hierarchy, hidden mutation queue, automatic mutation replay, schema/audit reset/deletion, secret/file-content persistence or permanent greeting/wiring/text tests. Only04 owns final production launch composition.
+
+## Comments
+
+E1, T3, L1 and S were approved on 2026-10-31. ClosedEnvironment is declared only in canonical src/domain/inventory.rs. The six EnabledMutation service cases and three LocalTrustApproval cases match E4 Design exactly. DownloadProofApproval stays empty. This declaration cohort creates no positive domain capability. Store must enforce L1's exact sealed bindings, atomic complete-set read-back and paired event; the ordinary AuditAppend path rejects free-standing LocalTrustCommitted. Actual E2/E3/E4 producers and their first Proofs remain pending. No source acceptance criterion or runtime checkbox is passed by policy approval.

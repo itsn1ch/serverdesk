@@ -114,7 +114,7 @@ External producer and gate details: ADR-0006:01 supplies actual Store::open/requ
 
 1. Write failing real-SQLite read/reopen/error tests for US-001-AC1 and US-010-AC5; implement spawn/inventory without connection work or fabricated empty state.
 2. Write failing structural identity, alias-equality, complete per-hop authentication, missing/cyclic reference tests; implement resolve and the three immutable projections.
-3. Preserve actual saved environment discriminators without certifying undefined membership; expose read errors through the private GTK inventory view.
+3. Preserve actual saved environment discriminators byte-for-byte. Classify exact E1 spellings without rewriting and expose nonmatching legacy metadata with a warning. It does not invalidate otherwise valid transport resolution. Report incompatible schema or unreadable values as StorageError; never fabricate missing/NULL data through the String observation.
 4. Keep complete generated/master acceptance wired to 04/05 and downstream ADR-0001:02/03/04; this ticket proves the saved-input leg, not an existing transport.
 5. Run the future implementation Verify commands on the integrated affected implementation, not on these documentation drafts.
 
@@ -142,3 +142,7 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add recursive Include/re-import/diff, arbitrary OpenSSH evaluation, direct Store-vector writes, implicit Adoption or a second launch API.
+
+## Comments
+
+E1 is approved. Existing Server.environment_discriminator remains a legacy observation, not an open new-write enum. Configuration::resolve distinguishes legacy descriptive metadata from invalid effective connection fields. All new saves remain owned by03 and must validate through canonical ClosedEnvironment. No existing-row normalization or public field change is approved.

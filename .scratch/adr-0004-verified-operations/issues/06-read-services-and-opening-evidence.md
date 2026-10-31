@@ -1,6 +1,6 @@
 # 06: Inspect Services and bounded file-opening evidence without mutation privilege
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 04 Inspect permanent audit and durably recover interrupted Operations
 **External blockers:** ADR-0006:01, ADR-0001:03
 **Source:** US-001-AC1, US-001-AC2, US-001-AC3, US-001-AC4, US-001-AC5, US-001-AC6, US-015-AC1, US-015-AC2
@@ -66,7 +66,7 @@ Foreign runtime inputs come from ADR-0006:01, ADR-0001:03. All referenced declar
 
 ## Flow
 
-Read resources flow3: existing E1 consumer → typed current read → actual observation.
+Read resources flow 3: existing E1 consumer → typed current read → actual observation.
 
 - In: `OperationEngine` ← 04
 - Out: `ResourceObservation` → 07
@@ -108,3 +108,7 @@ Use isolated Incus/LXD Ubuntu 24.04 with systemd255, sshd, non-root user, granul
 ## Do not touch
 
 Do not duplicate functions owned by another local/foreign introducing ticket. No generic proof fallback, invented human policy, second trust workflow, terminal-command audit, full file browser, privileged editing, remote lock, automatic mutation retry or audit deletion/reset. Early views and observations cannot mint authority; the actual scope data grants no permission.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.

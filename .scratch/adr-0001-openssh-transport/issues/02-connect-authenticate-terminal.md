@@ -1,6 +1,6 @@
 # 02: Connect and authenticate one shared master with independent terminals
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Clean actual orphan transport before admission.
 **External blockers:** ADR-0006:01, ADR-0006:02, ADR-0002:04, ADR-0003:04, ADR-0003:05.
 **Source:** US-001-AC1, US-001-AC2, US-001-AC4, US-002-AC1, US-002-AC2, US-002-AC3, US-002-AC4, US-002-AC5, US-003-AC1, US-003-AC2, US-003-AC6, US-004-AC1, US-004-AC2, US-004-AC3, US-004-AC4, US-004-AC5, US-004-AC6, US-005-AC1, US-005-AC2, US-005-AC3, US-005-AC4, US-005-AC5, US-005-AC6, US-006-AC1, US-006-AC2, US-006-AC3, US-006-AC4, US-007-AC1, US-007-AC2, US-007-AC3, US-007-AC4, US-007-AC5, US-008-AC1, US-008-AC2, US-008-AC3, US-008-AC4, US-014-AC1, US-014-AC2, US-014-AC3, US-014-AC4, US-014-AC5.
@@ -10,7 +10,7 @@
 
 The Developer can connect explicitly (or through the saved startup preference), authenticate through system OpenSSH, and use independent real VTE shells with truthful states. Direct start consumes actual configuration/trust/admission; it never invents policy or bypasses pending trust acceptance.
 
-External producers: ADR-0006:02 Runtime::admit issues ReadyOwnership only after this epic 01 plus actual durable recovery. ADR-0002:01 supplies Configuration::resolve and ADR-0002:04 supplies actual compile/launch_view; ADR-0003:04 supplies TrustGate::prepare and PreparedStart::into_prepared_start. ADR-0003:05 supplies real confirmed trust acceptance when needed; accepted-key fixtures use actual SQLite, not forged TrustStart. TransportUi is external GTK bootstrap input produced by install_transport_ui owned IN THIS ticket and passed by E6 composition. Declaration availability from ADR-0006:01 does not issue any of these capabilities. Unresolved ADR-0003:02 eligibility and ADR-0004:01 local trust policy transitively gate integrated Connect; status stays needs-info, no alternative policy chosen.
+External producers: ADR-0006:02 Runtime::admit issues ReadyOwnership only after this epic 01 plus actual durable recovery. ADR-0002:01 supplies Configuration::resolve and ADR-0002:04 supplies actual compile/launch_view; ADR-0003:04 supplies TrustGate::prepare and PreparedStart::into_prepared_start. ADR-0003:05 supplies real confirmed trust acceptance when needed; accepted-key fixtures use actual SQLite, not forged TrustStart. TransportUi is external GTK bootstrap input produced by install_transport_ui owned IN THIS ticket and passed by E6 composition. Declaration availability from ADR-0006:01 does not issue any of these capabilities. Approved T3 and L1 govern integrated Connect. Real E3 gate, E4 admission and E3 commit producers remain prerequisites; policy approval is not their implementation.
 
 ## Types
 
@@ -272,3 +272,19 @@ Any changed Cargo manifest/dependency wiring is exercised by these affected test
 - ADR-0002 inventory/import/generated policy, ADR-0003 trust eligibility/acceptance, ADR-0004 Verifier/Audit Trail/outcomes, ADR-0005 metric/backoff policy and ADR-0006 primary/admission/lease state remain with their canonical owners.
 - Never add a second SSH library, arbitrary public launch/command API, privileged root shell, secret persistence, user-config runtime fallback, automatic mutation replay or orphan adoption.
 - Preserve the original source specification and accepted ADRs; this is implementation of the appended Design, not a license to change product policy.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.
+
+### Copied T3 membership
+
+| Accepted category               | Direct | Jump  |
+| ------------------------------- | ------ | ----- |
+| VERIFIED                        | Allow  | Allow |
+| ADOPTED                         | Allow  | Block |
+| Explicitly committed UNVERIFIED | Allow  | Block |
+| MISMATCH                        | Block  | Block |
+| NONE                            | Block  | Block |
+
+Each allowed cell still requires authoritative accepted keys, current matching preflight, original resolution/reservation and fresh atomic SQLite-derived snapshot. Dialogs, scans and login success never authorize a start. A role-ineligible accepted key yields HostKeyUntrusted with the role and evidence class; mismatch yields HostKeyMismatch. No state promotion or stale-file fallback.

@@ -62,7 +62,7 @@ Foreign runtime inputs come from ADR-0006:01, ADR-0003:05. All referenced declar
 
 ## Flow
 
-Plan/dispatch flow4 steps3–5/8; exact service verbs and actual local trust public workflow integration.
+Plan/dispatch flow 4 steps 3–5/8; exact service verbs and actual local trust public workflow integration.
 
 - In: `OperationPlan` ← 07
 - Out: `ExecutionPermit` → 09
@@ -115,3 +115,15 @@ Use isolated Incus/LXD Ubuntu 24.04 with systemd255, sshd, non-root user, granul
 ## Do not touch
 
 Do not duplicate functions owned by another local/foreign introducing ticket. No generic proof fallback, invented human policy, second trust workflow, terminal-command audit, full file browser, privileged editing, remote lock, automatic mutation retry or audit deletion/reset. Early views and observations cannot mint authority; the actual scope data grants no permission.
+
+## Comments
+
+E4:01 L1 and E4:02 S decisions are approved and remain separate from runtime acceptance. Consume the complete canonical L1/S case, proof, interruption and Reconciliation tables, not a generic success predicate. Exactly six service variants exist in EnabledMutation; LocalTrustApproval has exactly Accept, Replace and Delete. Each private case is selected only within the original OperationRequest, identity, plan revision, evidence, consent and lease context. No public property or dialog mints authority. File policy 03 remains needs-info after rejection of cooperative F. This whole ticket remains needs-info through its listed file-policy dependency chain. No file variant or download proof case is approved. All source criteria and first Proof owners are retained; unavailable controls do not complete implementation.
+
+### Approved S implementation input
+
+Use the complete canonical E4 supported-unit matrix and each separate Start/Stop/Restart/Reload/Enable/Disable success, definite-failure, Unknown and read-only Reconciliation predicate. Running-service health is active/running/success with stable invocation and nonzero MainPID. Retained oneshot health is active/exited/success with MainPID zero and successful invocation completion. Completed oneshot completion is inactive/dead/success with MainPID zero and a new successful execution record, not daemon health. Reload is running-service only with actual notify-reload completion or documented synchronous ExecReload; signal-only asynchronous reload is unsupported.
+
+Capture actual applicable baseline timestamps and boot_id. Restart occurrence is not health. S requires a complete observable 10-second window with observations at every 1-second boundary including the start/end, same boot, and no contrary intervening evidence. Missing observations are Unknown; a contrary observed window fails rather than resetting until eventual success. Reconciliation may prove original occurrence then use a new complete later window, explicitly reporting later health rather than health during the missing interval.
+
+Enable/Disable prove the exact persistent state and full resolved install-link impact independently from ActiveState, with explicit no-op cases. Never add --now, another service verb, reset-failed, unmask or a separate daemon-reload. Preserve partial effects and honest uncertainty. All impact, definition, alias, manager, permission and property assumptions must be actually detected, bound to the original request/plan/identity/lease and rechecked at admission. Existing RequestedChange and applicable DestructiveImpact/UnmanagedResource consents cover the exact reviewed impact; consent does not create a missing technical property. The full canonical predicates, including exclusions and per-verb failure/correlation rules, govern beyond this summary. The whole ticket still awaits file-policy 03 through 07.

@@ -1,14 +1,15 @@
 # 02: Approve six service Verifier and Reconciliation policies
 
 **Status:** ready-for-human
+**Decision:** approved
 **Blocked by:** None (can start immediately)
 **External blockers:** None
 **Source:** US-006-AC1, US-006-AC2, US-006-AC3, US-006-AC4, US-007-AC1, US-007-AC2, US-007-AC3, US-007-AC4, US-007-AC5, US-008-AC1, US-008-AC2, US-008-AC3, US-008-AC4, US-008-AC5
-**Contract:** contract: n/a, human approval of missing policy; update only appended Design before dependent implementation.
+**Contract:** contract: n/a, approved human decision recorded in the appended Design; dependent runtime implementation remains pending.
 
 ## Goal
 
-Approve distinct Verifier and read-only Reconciliation predicates for Start, Stop, Restart, Reload, Enable and Disable, with supported unit semantics and explicit unsupported cases. For restart decide applicable boot/timestamp evidence, expected ActiveState/SubState/Result and stabilization window; occurrence is not health. Do not infer enablement from active state or assume disable stops a unit. No implementation policy is chosen by this ticket draft.
+Approve distinct Verifier and read-only Reconciliation predicates for Start, Stop, Restart, Reload, Enable and Disable, with supported unit semantics and explicit unsupported cases. For restart decide applicable boot/timestamp evidence, expected ActiveState/SubState/Result and stabilization window; occurrence is not health. Do not infer enablement from active state or assume disable stops a unit. The approved decision below supplies policy, not runtime implementation.
 
 ## Steps
 
@@ -19,7 +20,7 @@ Approve distinct Verifier and read-only Reconciliation predicates for Start, Sto
 
 ## Acceptance criteria
 
-Runtime context delivered by implementation07/08/10, not required to complete this policy:
+Runtime context delivered by implementation 07/08/10, not required to complete this policy:
 
 > `US-006-AC1`: Given a connected Server and a unit with the necessary detected Capability, exact permission and complete operation-specific evidence policy, when I open its service actions, then I can choose the supported start, stop, restart, reload, enable and disable actions by their actual names rather than being limited to restart or an arbitrary command field.
 > `US-006-AC2`: Given an available service action and any required confirmation, when I choose Start, Stop, Restart, Reload, Enable or Disable, then the Operation details identify the selected Server, unit and corresponding action, and execution requests exactly `systemctl start`, `systemctl stop`, `systemctl restart`, `systemctl reload`, `systemctl enable` or `systemctl disable` respectively for that unit through the authorized Operation workflow, without substituting another verb or adding an unrequested mutation.
@@ -36,9 +37,9 @@ Runtime context delivered by implementation07/08/10, not required to complete th
 > `US-008-AC4`: Given SSH loss after a mutation may have begun or otherwise insufficient evidence, when the outcome is assessed, then UNKNOWN is recorded with UnknownRemoteOutcome as appropriate, not an unproven FAILED, CANCELLED or SUCCEEDED.
 > `US-008-AC5`: Given a VerificationError, when the Verifier cannot establish a definite outcome, then the error preserves the Unknown Outcome boundary rather than converting inability to verify into proof that no remote effect occurred.
 
-- [ ] A human approves separate complete Verifier and read-only Reconciliation predicates for Start, Stop, Restart, Reload, Enable and Disable and their supported unit semantics.
-- [ ] The accepted restart decision fixes applicable timestamps/boot identity, healthy ActiveState/SubState/Result and stabilization policy while distinguishing occurrence from health and preserving uncertainty.
-- [ ] Supported and unavailable cases, errors and evidence boundaries are propagated into the appended Design and dependent implementation tickets; no runtime feature is a prerequisite to finishing this decision.
+- [x] A human approves separate complete Verifier and read-only Reconciliation predicates for Start, Stop, Restart, Reload, Enable and Disable and their supported unit semantics.
+- [x] The accepted restart decision fixes applicable timestamps/boot identity, healthy ActiveState/SubState/Result and stabilization policy while distinguishing occurrence from health and preserving uncertainty.
+- [x] Supported and unavailable cases, errors and evidence boundaries are propagated into the appended Design and dependent implementation tickets; no runtime feature is a prerequisite to finishing this decision.
 
 ## Verify
 
@@ -47,3 +48,9 @@ Future approval gate: human review of the complete predicates, uncertainty rules
 ## Do not touch
 
 No application implementation, source acceptance text, unrelated ADR decisions, arbitrary commands, privileged editor, remote locks or numeric policies selected by an agent.
+
+## Comments
+
+The operator approved S on 2026-10-31. Canonical E4 Design specifies each of the six exact verbs, the complete supported-unit matrix, systemd-observable 10-second stabilization with observations at 1-second boundaries including both endpoints, no contrary intervening evidence, and later-window read-only Reconciliation. This is not mathematical continuity or application health. Exact technical properties, reload synchrony, job evidence, privileges and timestamps still require detection and proof. EnabledMutation gains exactly six service cases, no file case. Decision ACs are fulfilled; runtime context and first Proofs 08/10 remain pending. Publication Status remains ready-for-human as the allowed decision-ticket role, not a runtime completion claim.
+
+Documentation-only, tdd: n/a. Root mechanical gates and independent judgment govern final policy-unit acceptance. No application behavior is complete.

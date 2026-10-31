@@ -57,3 +57,7 @@ ADR-0006:01 supplies common declarations and pure Store projections, not E5 runt
 ## In plain words
 
 You see the selected Server's real readings, collected through the connection you already opened. You can change how often they are collected or ask for a fresh reading without creating another login. CPU and network rates appear only after enough trustworthy measurements, not as made-up zeros. Each reading shows how current it is, and old readings stay visibly old when collection fails. Short live history stays only in memory and disappears when the app closes. Collection is limited so terminals remain usable, with no claim that a performance target has already been measured. You can navigate, refresh and understand errors with the keyboard while the app keeps responding. Disconnect and exit stop collection rather than quietly reconnecting in the background.
+
+## Comments
+
+E1, T3, L1 and S decisions are approved. Numbered implementation assignments are ready-for-agent after their actual listed producer prerequisites, not runtime-complete. T3 permits accepted VERIFIED, ADOPTED and explicitly committed UNVERIFIED for Direct use, VERIFIED only for every Jump role, and blocks NONE/MISMATCH in both. Fresh preflight, original binding and atomic SQLite snapshot remain required. File-policy 03 stays independently unresolved; its downstream enabled scenarios cannot be claimed delivered by read-only transport or monitoring.

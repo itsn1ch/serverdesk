@@ -54,7 +54,7 @@ StartupChanged // from 01
 
 ## Flow
 
-Design flow2: actual confined cleanup and durable interrupted recovery → matching reports → admit.
+Design flow 2: actual confined cleanup and durable interrupted recovery → matching reports → admit.
 
 - In: `StartupOwnership` ← 01
 - In: `Store` ← 01
@@ -112,3 +112,7 @@ Use actual confined system OpenSSH responsive orphan and dead stale socket clean
 ## Do not touch
 
 No foreign semantic writer transfer, future owner constructor, generic proof fallback, remote/distributed lock, persisted lease, new scope hierarchy, hidden mutation queue, automatic mutation replay, schema/audit reset/deletion, secret/file-content persistence or permanent greeting/wiring/text tests. Only04 owns final production launch composition.
+
+## Comments
+
+L1 is approved but does not weaken startup admission. Every interrupted Running/Verifying Operation, local or remote, first becomes durable Unknown with retained evidence. This recovery report proves interruption processing only, not any mutation outcome. Later local trust Reconciliation uses E4 L1 after actual worker closure and settled sole-primary SQLite without SSH/reconnect; remote cases retain their current gated reconnect requirement. File policy remains independently unapproved.

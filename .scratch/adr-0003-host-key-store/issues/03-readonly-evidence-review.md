@@ -51,7 +51,7 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 - **Intent.** Present stored trust, discovery, independent comparison and drift evidence without committing acceptance.
 - **Where.** `src/application/trust.rs`.
 - **Pre.** External query identifies a resolvable saved Server; evidence matches its complete endpoint/route. Routed discovery requires Some(RouteAccess).
-- **Post.** Resolves inventory FIRST; Inspect reads SQLite, explicit AdoptionLookup uses ssh-keygen -F including hashed entries, direct Discover uses actual keyscan, CompareFingerprint requires exact complete SHA256 equality, and CheckAdoptedDrift reads only the recorded Adoption source and warns without synchronization. Review distinguishes all five Trust States, stored provenance, eligibility policy absence, empty/loading/stale/error. No connectivity event promotes trust. Core launches owned scan/lookup workers and keeps servicing its mailbox; completions bind request, identity and revision before presentation.
+- **Post.** Resolves inventory FIRST; Inspect reads SQLite, explicit AdoptionLookup uses ssh-keygen -F including hashed entries, direct Discover uses actual keyscan, CompareFingerprint requires exact complete SHA256 equality, and CheckAdoptedDrift reads only the recorded Adoption source and warns without synchronization. Review distinguishes all five Trust States, stored provenance, accepted evidence and T3 role ineligibility, empty/loading/stale/error. No connectivity event promotes trust. Core launches owned scan/lookup workers and keeps servicing its mailbox; completions bind request, identity and revision before presentation.
 - **Errors.** Read, discovery, lookup, comparison, unavailable-route or storage failure commits nothing; cancelled lookup/decision cannot accept. Routed requests with None return unavailable and never Local. Errors identify Server/key/route, possible changes, recovery and related Operation when applicable.
 - **Idempotency.** Repeatable evidence queries may observe newer data; never automatic acceptance, retry mutation or external-file rewrite.
 
@@ -70,7 +70,7 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 - **Where.** `src/application/trust.rs`.
 - **Pre.** E4 supplies external Operation identity; evidence/endpoint/route match; expected authoritative key set is current; Verification has exact independent evidence, Adoption explicit lookup provenance, and TOFU retains warning/confirmation requirement.
 - **Post.** Creates private operation/identity-bound expected and replacement sets with accepted fields and correct path/state/provenance; replacement alone never means Verified; deletion creates no substitute key. Does not decide consent, status or success.
-- **Errors.** Validation, missing evidence, mismatch, stale expected keys or storage failure commits nothing. Missing local policy prevents executable admission, not an invented remote script.
+- **Errors.** Validation, missing evidence, mismatch, stale expected keys or storage failure commits nothing. Only actual E4 L1 admission enables execution; semantic preparation never invents a remote script.
 - **Idempotency.** Equivalent current state/input yields equivalent intent, not an execution permit; no acceptance on replay or cancellation.
 
 ## Invariants

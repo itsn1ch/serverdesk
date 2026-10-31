@@ -1,6 +1,6 @@
 # 04: Gate reserved starts and regenerate atomic authoritative trust snapshots
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Open canonical stored-key evidence and distribute one trust core, 02: Human policy decision, 03: Review local trust evidence, exact fingerprints and Adoption drift without acceptance.
 **External blockers:** ADR-0006:01, ADR-0001:01.
 **Source:** `US-006-AC1`, `US-006-AC2`, `US-006-AC3`, `US-006-AC4`, `US-008-AC1`, `US-008-AC2`, `US-008-AC3`, `US-008-AC4`, `US-008-AC5`, `US-009-AC2`, `US-011-AC2`, `US-011-AC3`.
@@ -8,7 +8,7 @@
 
 ## Goal
 
-A reserved start is blocked before transport on NONE, mismatch or unresolved policy, with the original accepted key preserved. Only approved eligibility plus a newly regenerated atomic SQLite-derived known_hosts can return the original resolution/reservation and matching positive TrustStart.
+A reserved start is blocked before transport on NONE, mismatch or T3 role ineligibility, with the original accepted key preserved. Only approved eligibility plus a newly regenerated atomic SQLite-derived known_hosts can return the original resolution/reservation and matching positive TrustStart.
 
 ## Types
 
@@ -39,8 +39,8 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 - **Intent.** Authorize exactly one reserved master start against current accepted trust and a fresh atomic snapshot.
 - **Where.** `src/application/trust.rs`.
 - **Pre.** Resolution occurs first; identity/reservation/discovery path agree; Jump path, if any, names an already-permitted registered current generation; Direct/Jump eligibility policy has been approved.
-- **Post.** Keyscan evidence is checked against accepted keys with ssh-keygen -F preflight before master launch. NONE, MISMATCH or unresolved eligibility produces no permission. On success atomically regenerates known_hosts from authoritative SQLite and returns PreparedStart containing the ORIGINAL resolved and reservation values plus matching private TrustStart/digest/start ID. Core delegates owned I/O workers and keeps its mailbox serviced.
-- **Errors.** HostKeyUntrusted, HostKeyMismatch, unavailable policy, stale binding or storage/generation/atomic replacement failure yields no PreparedStart; preserves accepted key and forbids stale snapshot/user trust fallback. E1 retains attempt metadata to retire a failed consumed reservation without reconstructing authority. Classification is not human stderr or exit 255.
+- **Post.** Keyscan evidence is checked against accepted keys with ssh-keygen -F preflight before master launch. NONE, MISMATCH or T3 role ineligibility produces no permission. On success atomically regenerates known_hosts from authoritative SQLite and returns PreparedStart containing the ORIGINAL resolved and reservation values plus matching private TrustStart/digest/start ID. Core delegates owned I/O workers and keeps its mailbox serviced.
+- **Errors.** HostKeyUntrusted, HostKeyMismatch, stale binding or storage/generation/atomic replacement failure yields no PreparedStart; preserves accepted key and forbids stale snapshot/user trust fallback. E1 retains attempt metadata to retire a failed consumed reservation without reconstructing authority. Classification is not human stderr or exit 255.
 - **Idempotency.** Submit a reservation once. Success hands it back for one compilation; every startup/reconnect/new master requires a fresh reservation and regeneration. Generated-file edits never enter SQLite.
 
 ### `PreparedStart::into_prepared_start(self) -> (E2::ResolvedConnection, E1::StartReservation, TrustStart)`
@@ -68,7 +68,7 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 | INV-1 | Host Key reads and migrations use authoritative SQLite fields with UUID identities, enabled foreign keys and preserved public evidence; failures never fabricate NONE or truncate data. | preserve  | Future test `trust_authoritative_store_migration`; first proof owner 01        |
 | INV-2 | Review, drift, discovery, connectivity and generated-file edits never accept, replace, delete or promote authoritative Host Keys.                                                       | preserve  | Future test `trust_readonly_review_provenance`; first proof owner 03           |
 | INV-3 | Verified evidence requires exact independent complete SHA256 comparison; Adoption and TOFU retain their distinct provenance and cannot imply Verified.                                  | preserve  | Future test `trust_exact_fingerprint_evidence`; first proof owner 03           |
-| INV-4 | NONE, MISMATCH and unresolved Direct/Jump eligibility cannot produce TrustStart or authorize a master.                                                                                  | establish | Future test `trust_prestart_absent_mismatch_eligibility`; first proof owner 04 |
+| INV-4 | NONE, MISMATCH and T3 role-ineligible accepted keys cannot produce TrustStart or authorize a master.                                                                                    | establish | Future test `trust_prestart_absent_mismatch_eligibility`; first proof owner 04 |
 | INV-5 | Each positive start owns its original resolution/reservation and a fresh atomic SQLite-derived matching snapshot; failed regeneration never uses an old file.                           | establish | Future test `trust_atomic_snapshot_handback`; first proof owner 04             |
 | INV-8 | TrustPorts distributes core/gate/executor capabilities addressing exactly one TrustCore mailbox; façades do not create a second canonical trust writer.                                 | preserve  | Future test `trust_single_core_ports`; first proof owner 01                    |
 
@@ -88,7 +88,7 @@ External producer and gate details: ADR-0006:01 declares shared records. ADR-000
 
 ## Steps
 
-1. Consume approved 02 membership policy and update Design exactly; without it keep Direct/Jump use unavailable and do not choose a permissive default.
+1. Implement approved T3 exactly. Direct permits accepted VERIFIED, ADOPTED and explicitly committed UNVERIFIED; Jump permits VERIFIED only; NONE and MISMATCH block both. No evidence discovery or UI acknowledgement issues TrustStart.
 2. Write failing real keyscan/ssh-keygen -F preflight tests for NONE/mismatch and accepted-key preservation; implement prepare without human stderr or exit-255 classification.
 3. Write failing per-start regeneration, tampered-file replacement and stale snapshot rejection tests with actual preexisting accepted SQLite keys; atomically generate only authoritative content.
 4. Inject unreadable Store, rename/generation failures and disk-full exclusively on an isolated container filesystem; no positive result or fallback may escape.
@@ -129,3 +129,17 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add automatic acceptance/promotion/synchronization, remote shell trust mutation, direct unaudited HostKey writes, fake capability constructors, or a second trust/audit owner.
+
+## Comments
+
+The complete T3 table in canonical E3 Design is copied below. Evidence discovery is not acceptance. Current matching preflight, original reservation and resolution, and a fresh atomic SQLite-derived snapshot remain mandatory for every allowed cell. A role-ineligible accepted key yields HostKeyUntrusted with its role and evidence class; mismatch yields HostKeyMismatch without rewriting accepted keys.
+
+| Accepted category               | Direct | Jump  |
+| ------------------------------- | ------ | ----- |
+| VERIFIED                        | Allow  | Allow |
+| ADOPTED                         | Allow  | Block |
+| Explicitly committed UNVERIFIED | Allow  | Block |
+| MISMATCH                        | Block  | Block |
+| NONE                            | Block  | Block |
+
+Decision T3 is approved after the explicit correction 3, VERIFIED Jump only, overriding T2. This assignment is policy-complete but its actual gate/snapshot Proofs remain pending.

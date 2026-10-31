@@ -1,6 +1,6 @@
 # 05: Commit explicitly confirmed trust changes with inseparable permanent audit facts
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Open canonical stored-key evidence and distribute one trust core, 03: Review local trust evidence, exact fingerprints and Adoption drift without acceptance.
 **External blockers:** ADR-0006:01, ADR-0004:01, ADR-0004:04, ADR-0004:05, ADR-0006:03.
 **Source:** `US-001-AC1`, `US-001-AC2`, `US-001-AC3`, `US-001-AC4`, `US-001-AC5`, `US-001-AC6`, `US-002-AC1`, `US-002-AC2`, `US-002-AC3`, `US-002-AC4`, `US-002-AC5`, `US-003-AC1`, `US-003-AC2`, `US-003-AC3`, `US-003-AC4`, `US-004-AC1`, `US-004-AC2`, `US-004-AC3`, `US-005-AC1`, `US-005-AC2`, `US-005-AC3`, `US-009-AC1`, `US-009-AC2`, `US-009-AC3`, `US-009-AC4`, `US-009-AC5`, `US-009-AC6`, `US-010-AC1`, `US-010-AC2`, `US-010-AC3`, `US-010-AC4`, `US-010-AC5`, `US-010-AC6`, `US-011-AC1`, `US-011-AC2`, `US-011-AC3`, `US-011-AC4`.
@@ -40,7 +40,7 @@ These are exact canonical declarations from ADR-0006:01, not existing applicatio
 
 - **Intent.** Apply an explicitly engine-admitted local trust change with inseparable sanitized audit evidence.
 - **Where.** `src/application/trust.rs`.
-- **Pre.** Approved E4 local lifecycle/atomic outcome/Verifier/read-only Reconciliation policy exists; matching operation/revision/expected keys and contiguous expected audit tail; durable write-ahead and active Runtime lease exist. No approved LocalTrustApproval variant exists today.
+- **Pre.** Approved E4 local lifecycle/atomic outcome/Verifier/read-only Reconciliation policy exists; matching operation/revision/expected keys and contiguous expected audit tail; durable write-ahead and active Runtime lease exist. Exactly Accept, Replace and Delete are approved under L1; only the bound E4 envelope admits one exact delta.
 - **Post.** Store transaction compares expected keys/tail, applies E3-authored delta, verifies read-back and appends E4-authored committed event ID/ordinal in sanitized_payload, all or none. Store creates plain immutable TrustCommitObservation; TrustCore forwards facts without minting verdict or connection permission. E4 keeps servicing stop/completion/lease mailboxes and owns final outcome.
 - **Errors.** CAS, ordinal conflict, FK/validation/storage failure rolls back key change and paired event. Insufficient/ambiguous proof is not success; inspect retained event/state instead of blind repeat. Cancellation before commit has no acceptance; after possible commit follow approved local outcome policy.
 - **Idempotency.** Same operation/event identity and exact content returns original facts or conflict, never another commit/ordinal. Crash leaves both trust+audit committed or neither; local read-only Reconciliation is policy-gated, not dependent on fake remote reconnect.
@@ -151,3 +151,7 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add automatic acceptance/promotion/synchronization, remote shell trust mutation, direct unaudited HostKey writes, fake capability constructors, or a second trust/audit owner.
 
 The `src/application/operations.rs` change is limited to private invocation/completion integration for the SAME E4-owned local workflow. Do not redefine E4:05's prepare/admit/finish public or crate-private function contracts, transfer its Operation/audit/lease state to E3, introduce a second mutation path, or claim E4:05 completed an E3 commit before this integration exists.
+
+## Comments
+
+L1 is approved in canonical E4 Design. Implement its complete Accept/Replace/Delete case table, per-case consent, interruption table and historical attributed commit proof. Store compares the original sealed E3 delta and E4 envelope, complete expected keys, Operation/revision/identity, actual write-ahead tail, active lease and reserved event UUID/ordinal. It atomically applies the delta, verifies exact full-set read-back, and appends the paired LocalTrustCommitted event. The ordinary AuditAppend path cannot insert that event. Expose facts only. Durable outcome and joined release remain E4-owned. Later audited changes affect current trust but not proven historical success; current matching rows alone never prove this Operation. Reconciliation reads only after actual worker closure and settled SQLite, without remote reconnect. No runtime checkbox is passed by this decision.

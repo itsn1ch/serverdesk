@@ -1,6 +1,6 @@
 # 05: Review and admit local trust Operations before effects
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01 Approve local trust lifecycle and evidence policy, 04 Inspect permanent audit and durably recover interrupted Operations
 **External blockers:** ADR-0006:01, ADR-0003:03, ADR-0006:03
 **Source:** US-013-AC1, US-013-AC2, US-013-AC3, US-013-AC4, US-004-AC1, US-004-AC3, US-004-AC5, US-005-AC1, US-005-AC2, US-005-AC3, US-005-AC4, US-005-AC5
@@ -8,9 +8,9 @@
 
 ## Goal
 
-After actual audit04 and approved human local policy01, implement prepare_local_trust using Configuration resolution and the pure E3:03 prepare_change to validate actual current stored keys and produce one sealed LocalTrustPlan. No SSH, remote read, service policy or E3 commit prerequisite is allowed.
+After actual audit 04 and approved human local policy 01, implement prepare_local_trust using Configuration resolution and the pure E3:03 prepare_change to validate actual current stored keys and produce one sealed LocalTrustPlan. No SSH, remote read, service policy or E3 commit prerequisite is allowed.
 
-Dependent enabled implementation remains needs-info until blocking human policies are approved. The verbatim source criteria retain the full required behavior; unavailable controls are not represented as completed mutation delivery.
+L1 is approved. This assignment is ready-for-agent after its listed real producer prerequisites land. Admission is not a completed trust commit; E3:05 remains the actual commit integration owner.
 
 ## Types
 
@@ -96,7 +96,7 @@ Foreign runtime inputs come from ADR-0006:01, ADR-0003:03, ADR-0006:03. All refe
 
 ## Flow
 
-Local trust flow2: prepare → review → exact consent → real lease/write-ahead → consume paired admission; registered actual commit completion → private finish → joined release.
+Local trust flow 2: prepare → review → exact consent → real lease/write-ahead → consume paired admission; registered actual commit completion → private finish → joined release.
 
 - In: `OperationEngine` ← 04
 - Out: `LocalTrustPlan` → 07
@@ -105,7 +105,7 @@ Local trust flow2: prepare → review → exact consent → real lease/write-ahe
 
 ## Steps
 
-1. Write the failing behavior proof for After actual audit04 and approved human local policy01, implement prepare_local_trust using Configuration resolution and the pure E3:03 prepare_change to validate actual current stored keys and produce one sealed LocalTrustPlan. No SSH, remote read, service policy or E3 commit prerequisite is allowed. Then implement this boundary until that proof passes.
+1. Write the failing behavior proof for After actual audit 04 and approved human local policy 01, implement prepare_local_trust using Configuration resolution and the pure E3:03 prepare_change to validate actual current stored keys and produce one sealed LocalTrustPlan. No SSH, remote read, service policy or E3 commit prerequisite is allowed. Then implement this boundary until that proof passes.
 2. Write the failing behavior proof for Present exact affected Server/Host Key identity, action, impact and revision through inspect_local_trust_plan; require applicable requested-change/destructive/unmanaged/replacement/deletion/TOFU consent from that same revision. Then implement this boundary until that proof passes.
 3. Write the failing behavior proof for Implement admit_local_trust with actual E6:03 identity/resource lease acquisition and fresh stored preconditions. Commit Running before any trust change, retain the lease in the E4 active-work map, and create exactly one LocalTrustAdmitted containing the original prepared delta and sealed envelope with actual tail/paired UUID/ordinal. Then implement this boundary until that proof passes.
 4. Write the failing behavior proof for Consume admitted parts only through into_local_trust_admitted, supplying E3:05 commit with the exact original delta/envelope. This ticket demonstrates genuine local SQLite/consent/write-ahead admission before transport; it does not invent a trust commit result or claim full mutation completion before the real executor exists. Then implement this boundary until that proof passes.
@@ -144,3 +144,11 @@ Use actual SQLite/Configuration/TrustCore semantic preparation and Runtime ident
 ## Do not touch
 
 Do not duplicate functions owned by another local/foreign introducing ticket. No generic proof fallback, invented human policy, second trust workflow, terminal-command audit, full file browser, privileged editing, remote lock, automatic mutation retry or audit deletion/reset. Early views and observations cannot mint authority; the actual scope data grants no permission.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.
+
+### Approved L1 implementation input
+
+Use exactly private LocalTrustApproval::Accept, Replace and Delete, bound to the existing OperationRequest, original E3 expected/intended key sets, Server, endpoint, saved identity, action, revision, consent, active lease, write-ahead tail and reserved event identity. Enforce the full canonical E4 L1 case table and interruption table. Success is attributable historical atomic commit, independent from later current trust. Reconciliation requires complete valid audit and settled original work; no current-row coincidence, arbitrary Error or dialog proves success or closure. No SSH or reconnect prerequisite applies. First proof remains 05 for truthful admission and joined completion, E3:05 for the actual inseparable commit, and 10 for read-only Reconciliation.

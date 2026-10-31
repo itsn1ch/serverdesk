@@ -76,7 +76,7 @@ SettingsCommit // from 01
 
 ## Flow
 
-Design flow4: main calls real launch → actual safety bootstrap → actual owners/separate feeds → read-only identity-bound recovery → worker/completion shutdown.
+Design flow 4: main calls real launch → actual safety bootstrap → actual owners/separate feeds → read-only identity-bound recovery → worker/completion shutdown.
 
 - In: `Runtime` ← 01
 - In: `Store` ← 01
@@ -169,3 +169,7 @@ Run actual production GTK entry under a session bus and isolated Incus/LXD Ubunt
 ## Do not touch
 
 No foreign semantic writer transfer, future owner constructor, generic proof fallback, remote/distributed lock, persisted lease, new scope hierarchy, hidden mutation queue, automatic mutation replay, schema/audit reset/deletion, secret/file-content persistence or permanent greeting/wiring/text tests. Only04 owns final production launch composition.
+
+## Comments
+
+E1, T3, L1 and S decisions are approved. Full desktop remains needs-info through file-policy 03, E4:07/08/09/10/11 and E3:06. Do not relabel a partial desktop as full completion. L1 is the explicit local-only exception to the preserved US-010-AC1/AC2 remote reconnect wording. After startup durably marks interrupted work Unknown, authoritative local Store and sole ownership allow local read-only Reconciliation only after actual original-worker closure and settled SQLite. Apply historical attributed plan/event/read-back proof and show current trust separately. Remote cases still wait for current gated reconnect and original identity. No mutation replay or fabricated reports are allowed. Actual final launch, reconnect feeds and shutdown proofs remain unrun.

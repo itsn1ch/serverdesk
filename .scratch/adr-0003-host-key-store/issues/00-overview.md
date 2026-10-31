@@ -27,7 +27,7 @@ Paths are planned source changes, not implemented APIs. ADR-0006:01 introduces t
 │   ├── trust_workflows.rs [01, 03, 04, 05, 06] Actual key discovery, SQLite, snapshot and atomicity proofs
 │   └── trust_gtk.rs [03, 04, 05, 06] Keyboard, uncertainty and trust-decision journeys
 ├── Cargo.toml [01] Compatible trust workflow dependencies
-├── GLOSSARY.md [02] Approved Direct and Jump trust-use terms
+├── .scratch/adr-0003-host-key-store/issues/02-trust-eligibility-policy.md [02] T3 approval record
 └── .scratch/
     └── adr-0003-host-key-store/
         └── spec.md [02] Approved eligibility contract and affected ticket readiness
@@ -59,11 +59,15 @@ The actual E4:05 local-admission stages precede 05 and are reused later by publi
 
 - 01: Open canonical stored-key evidence and distribute one trust core — local blockers: None; external blockers: ADR-0006:01; status: ready-for-agent.
 - 03: Review local trust evidence, exact fingerprints and Adoption drift without acceptance — local blockers: 01; external blockers: ADR-0006:01, ADR-0002:01; status: ready-for-agent.
-- 04: Gate reserved starts and regenerate atomic authoritative trust snapshots — local blockers: 01, 02, 03; external blockers: ADR-0006:01, ADR-0001:01; status: needs-info.
-- 05: Commit explicitly confirmed trust changes with inseparable permanent audit facts — local blockers: 01, 03; external blockers: ADR-0006:01, ADR-0004:01, ADR-0004:04, ADR-0004:05, ADR-0006:03; status: needs-info.
+- 04: Gate reserved starts and regenerate atomic authoritative trust snapshots — local blockers: 01, 02, 03; external blockers: ADR-0006:01, ADR-0001:01; status: ready-for-agent.
+- 05: Commit explicitly confirmed trust changes with inseparable permanent audit facts — local blockers: 01, 03; external blockers: ADR-0006:01, ADR-0004:01, ADR-0004:04, ADR-0004:05, ADR-0006:03; status: ready-for-agent.
 - 06: Discover routed target keys and complete the public GTK trust-decision journey — local blockers: 03, 04, 05; external blockers: ADR-0006:01, ADR-0001:04, ADR-0004:08; status: needs-info.
-- 02: Human policy decision — no local blockers; ready-for-human. It can run beside 01. Every later needs-info remains gated until its named policy is approved; a declaration is never a runtime capability.
+- 02 is approved T3 after the explicit correction 3, VERIFIED Jump only, overriding T2. Publication role remains ready-for-human with decision completion recorded. Local L1 is separately approved. Ticket06 remains needs-info through E4:08/07 and unresolved file policy 03.
 
 ## In plain words
 
-First, keep accepted public keys and their evidence in the real database. You can inspect saved evidence, look up a key you already trusted elsewhere, compare an independent fingerprint, and notice later changes without accepting anything automatically. A person must decide exactly which accepted keys may be used for direct and jump connections. Every new connection then needs a fresh, safely replaced trust file, and missing or mismatched trust blocks it before it starts. Accepting, replacing or deleting trust also needs the separately approved local-operation rules, with the key change and permanent audit evidence saved together. A jump server can help discover a target key, but cannot prove who that target is. The screens show progress, uncertainty and failures honestly and work from the keyboard.
+First, keep accepted public keys and their evidence in the real database. You can inspect saved evidence, look up a key you already trusted elsewhere, compare an independent fingerprint, and notice later changes without accepting anything automatically. Approved T3 permits accepted VERIFIED, ADOPTED and explicitly committed UNVERIFIED for Direct use; Jump requires VERIFIED. Every new connection then needs a fresh, safely replaced trust file, and missing or mismatched trust blocks it before it starts. Accepting, replacing or deleting trust also needs the separately approved local-operation rules, with the key change and permanent audit evidence saved together. A jump server can help discover a target key, but cannot prove who that target is. The screens show progress, uncertainty and failures honestly and work from the keyboard.
+
+## Comments
+
+Decision completion is not runtime acceptance. E3:04 and05 are ready-for-agent assignments after listed actual producer prerequisites, not existing gate/commit capabilities. E3:06 retains all full GTK criteria and its independent transitive file blocker. T3 never promotes evidence and L1 success never issues connection permission.

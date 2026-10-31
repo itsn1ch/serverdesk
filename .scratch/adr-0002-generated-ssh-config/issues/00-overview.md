@@ -28,7 +28,7 @@ Paths are planned source changes, not implemented APIs. ADR-0006:01 introduces t
 │   ├── configuration_workflows.rs [01, 03, 04, 05] Actual SQLite, static Import and isolated OpenSSH checks
 │   └── configuration_gtk.rs [01, 03, 04, 05] Keyboard, loading, empty and error journeys
 ├── Cargo.toml [01] Compatible inventory workflow dependencies
-├── GLOSSARY.md [02] Approved environment vocabulary
+├── .scratch/adr-0002-generated-ssh-config/issues/02-environment-policy.md [02] E1 approval record
 └── .scratch/
     └── adr-0002-generated-ssh-config/
         └── spec.md [02] Approved environment contract and affected ticket readiness
@@ -56,11 +56,15 @@ Registered route: 01 → 03 → 04 → 05 (03 and 04 may proceed in parallel aft
 Actual terminal/all-consumer/routed journeys: 04 → ADR-0001:02 → ADR-0001:03; 05 → ADR-0001:04. These are downstream integration consumers, not cyclic prerequisites.
 
 - 01: Read saved inventory and resolve complete Connection Identities — local blockers: None; external blockers: ADR-0006:01; status: ready-for-agent.
-- 03: Save reference-only settings and import an explicit static whitelist — local blockers: 01, 02; external blockers: ADR-0006:01; status: needs-info.
-- 04: Generate and self-check isolated direct-start and attachment policy — local blockers: 01; external blockers: ADR-0006:01, ADR-0001:01, ADR-0003:04; status: needs-info.
-- 05: Generate only registered complete Jump Server routes — local blockers: 01, 03, 04; external blockers: ADR-0006:01; status: needs-info.
-- 02: Human policy decision — no local blockers; ready-for-human. It can run beside 01. Every later needs-info remains gated until its named policy is approved; a declaration is never a runtime capability.
+- 03: Save reference-only settings and import an explicit static whitelist — local blockers: 01, 02; external blockers: ADR-0006:01; status: ready-for-agent.
+- 04: Generate and self-check isolated direct-start and attachment policy — local blockers: 01; external blockers: ADR-0006:01, ADR-0001:01, ADR-0003:04; status: ready-for-agent.
+- 05: Generate only registered complete Jump Server routes — local blockers: 01, 03, 04; external blockers: ADR-0006:01; status: ready-for-agent.
+- 02 is approved E1. Publication role remains ready-for-human, with checked decision ACs and an approval record. Real producer prerequisites of01/03/04/05 remain unimplemented; ready-for-agent is not runtime acceptance.
 
 ## In plain words
 
-First, read the saved connection settings without contacting a server. A person must settle the missing environment choices before new servers can be saved or imported. Import copies only supported settings, explains what it skipped, and never runs commands from the source file. The original files stay untouched. Connections then use a newly generated, checked set of settings that cannot borrow commands or trust decisions from your personal SSH files. Registered jump servers are added without hidden routes or a silent direct fallback. Errors, loading and saved results stay clear and usable from the keyboard.
+First, read the saved connection settings without contacting a server. Approved E1 supplies five exact lowercase environments and an Unspecified default. New writes require strict validation and existing legacy metadata remains unchanged. Import copies only supported settings, explains what it skipped, and never runs commands from the source file. The original files stay untouched. Connections then use a newly generated, checked set of settings that cannot borrow commands or trust decisions from your personal SSH files. Registered jump servers are added without hidden routes or a silent direct fallback. Errors, loading and saved results stay clear and usable from the keyboard.
+
+## Comments
+
+E1 decision completion does not pass runtime criteria. ClosedEnvironment is canonical in E2 and declared by E6:01. T3 and L1 are separately approved; each generated start still needs actual E3 gate/snapshot and E1 producers. File policy 03 remains independent and is not bypassed by this epic.

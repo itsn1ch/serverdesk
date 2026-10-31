@@ -1,6 +1,6 @@
 # 04: Traverse registered Jump routes and discover through trusted prefixes
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 02: Connect and authenticate one shared master with independent terminals, 03: Carry isolated typed SFTP Operation and Collector consumers.
 **External blockers:** ADR-0002:05, ADR-0003:04.
 **Source:** US-001-AC1, US-001-AC2, US-003-AC3, US-003-AC4, US-003-AC5.
@@ -10,7 +10,7 @@
 
 Registered multi-hop Jump routes reach the real target using only individually gated prefixes. Routed discovery uses the existing trusted Jump generation and never scans locally or transfers trust from Jump to target.
 
-External producer ADR-0002:05 refines actual Configuration::compile with the complete registered route; ADR-0002:01 resolves inventory identities. ADR-0003:04 supplies the actual trust gate over the same canonical trust core. Consumer from 03 is the actual typed scanner channel used by routed discovery, not a new login. E3:06 consumes this route capability later and must not be an upstream blocker. ADR-0003:02 trust eligibility is still a human gate, not policy supplied here.
+External producer ADR-0002:05 refines actual Configuration::compile with the complete registered route; ADR-0002:01 resolves inventory identities. ADR-0003:04 supplies the actual trust gate over the same canonical trust core. Consumer from 03 is the actual typed scanner channel used by routed discovery, not a new login. E3:06 consumes this route capability later and must not be an upstream blocker. Approved T3 permits VERIFIED only for every Jump role. ADOPTED and explicitly accepted UNVERIFIED are Direct-only; NONE and MISMATCH always block. Policy is owned by E3, not supplied by transport.
 
 ## Types
 
@@ -119,3 +119,19 @@ Any changed Cargo manifest/dependency wiring is exercised by these affected test
 - ADR-0002 inventory/import/generated policy, ADR-0003 trust eligibility/acceptance, ADR-0004 Verifier/Audit Trail/outcomes, ADR-0005 metric/backoff policy and ADR-0006 primary/admission/lease state remain with their canonical owners.
 - Never add a second SSH library, arbitrary public launch/command API, privileged root shell, secret persistence, user-config runtime fallback, automatic mutation replay or orphan adoption.
 - Preserve the original source specification and accepted ADRs; this is implementation of the appended Design, not a license to change product policy.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.
+
+### Copied T3 membership
+
+| Accepted category               | Direct | Jump  |
+| ------------------------------- | ------ | ----- |
+| VERIFIED                        | Allow  | Allow |
+| ADOPTED                         | Allow  | Block |
+| Explicitly committed UNVERIFIED | Allow  | Block |
+| MISMATCH                        | Block  | Block |
+| NONE                            | Block  | Block |
+
+Apply Jump membership independently to every registered hop before discovery or connection and Direct membership to the final target. Every allowed use still requires current matching preflight and fresh atomic trust snapshot. A hop never supplies target acceptance.

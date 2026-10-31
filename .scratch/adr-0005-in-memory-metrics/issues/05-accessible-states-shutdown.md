@@ -1,6 +1,6 @@
 # 05: Present accessible monitoring states and join shutdown
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Collect actual observations with persisted validated settings, 04: Bound memory retention and Collector concurrency.
 **External blockers:** ADR-0001:05.
 **Source:** US-002-AC5, US-011-AC1, US-011-AC2, US-011-AC3, US-011-AC4, US-011-AC5, US-012-AC1, US-012-AC2, US-012-AC3, US-012-AC4.
@@ -122,3 +122,7 @@ Any changed Cargo manifest/dependency wiring is exercised by these affected test
 - E1 owns masters and authentication; E2 inventory identity, E3 trust, E4 administrative evidence/outcomes and E6 admission/storage remain foreign owner state.
 - No persistent sample/history store, remote agent/daemon, autonomous Connect, mutation authority, fabricated zero, gap interpolation, inferred downtime, undocumented numeric tuning policy or unsupported benchmark claim.
 - Preserve the original source specification and accepted ADRs; this is implementation of the appended Design, not a license to change product policy.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.

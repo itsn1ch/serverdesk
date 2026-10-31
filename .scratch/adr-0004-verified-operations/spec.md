@@ -509,8 +509,10 @@ pub struct OperationChanged {
 }
 pub struct OperationEngine { tx: mpsc::Sender<OperationMessage> }
 
-pub(crate) enum EnabledMutation {}
-pub(crate) enum LocalTrustApproval {}
+pub(crate) enum EnabledMutation {
+    ServiceStart, ServiceStop, ServiceRestart, ServiceReload, ServiceEnable, ServiceDisable,
+}
+pub(crate) enum LocalTrustApproval { Accept, Replace, Delete }
 
 pub(crate) struct ExecutionPermit {
     expected_identity: E2::ConnectionIdentity,
@@ -864,7 +866,7 @@ impl OperationEngine {
 
 OperationEngine is the sole ordinal allocator and semantic Operation/Transfer writer. `operations` holds immutable accepted intent; `operation_events.sanitized_payload` encodes ordinal plus fact, and event_type retains its accepted meaning. There is no new column/table, SQL rowid chronology, mutable current-state audit row or second persistence stream. Each Operation starts at ordinal 1; subsequent batches carry the actual committed AuditTail and contiguous successors. Store validates all affected tails, ordinal uniqueness/contiguity, event UUIDs and FKs in the same transaction; matching duplicate identity/content returns retained facts, conflicting duplicates roll back. Folding orders validated per-Operation ordinals, never timestamps, UUIDs or physical retrieval order. One unresolved append reservation per Operation prevents gaps without globally serializing independent Operations; ambiguous writes force actual history/tail read. UPDATE/DELETE are denied for intent and event tables. Sanitization excludes passwords, passphrases, secrets, file bytes, text buffers and raw remote output before E4 creates a sealed AuditAppend.
 
-Every authority wrapper keeps private fields and is non-Clone; views are immutable observations, not write authority. AuditAppend and LocalTrustEnvelope enter Store sealed; their projections are not accepted as Store requests. ExecutionObservation may be infrastructure-created facts but never proof of outcome. Empty EnabledMutation, LocalTrustApproval and DownloadProofApproval are deliberate unavailable policy gates, not implementation stubs; only human-approved per-type contract changes can supply supported constructors. No generic Verifier registry or permissive boolean is introduced.
+Every authority wrapper keeps private fields and is non-Clone; views are immutable observations, not write authority. AuditAppend and LocalTrustEnvelope enter Store sealed; their projections are not accepted as Store requests. ExecutionObservation may be infrastructure-created facts but never proof of outcome. The six private service cases in EnabledMutation and three local cases in LocalTrustApproval select approved S/L1 predicates only within existing bound admissions. DownloadProofApproval remains empty and file mutation cases remain unavailable. No generic Verifier registry or permissive boolean is introduced.
 
 Owner handlers retain pending replies and expected work IDs, launch owned workers with immutable inputs and resume mailbox service; workers return completion messages and never mutate owner state. Lease state is Held → ReleasePending → Released. Stop/join errors with any unjoined owned work create no WorkJoined. Settled joins and outcome persistence precede the release worker; OperationQuiesced is emitted only after actual release acknowledgements and never returns already-consumed WorkJoined values. No actor-state lock or SQLite transaction spans a remote await.
 
@@ -909,8 +911,8 @@ ResourceScope is immutable pub(crate) equality-key data, never authority: only t
 | `OperationHistory`       | value  | Folded Operations and retained facts                                                                  | `src/domain/operation.rs` `OperationHistory`                | none (immutable)  |
 | `OperationChanged`       | event  | A durable Operation observation changed                                                               | `src/domain/operation.rs` `OperationChanged`                | OperationEngine   |
 | `OperationEngine`        | entity | Sole Operation/Transfer semantic writer                                                               | `src/application/operations.rs` `OperationEngine`           | OperationEngine   |
-| `EnabledMutation`        | enum   | No approved mutation cases yet                                                                        | `src/application/operations.rs` `EnabledMutation`           | OperationEngine   |
-| `LocalTrustApproval`     | enum   | No approved local specialization yet                                                                  | `src/application/operations.rs` `LocalTrustApproval`        | OperationEngine   |
+| `EnabledMutation`        | enum   | Exactly six approved S service cases; no file authority                                               | `src/application/operations.rs` `EnabledMutation`           | OperationEngine   |
+| `LocalTrustApproval`     | enum   | Exactly Accept, Replace and Delete under L1                                                           | `src/application/operations.rs` `LocalTrustApproval`        | OperationEngine   |
 | `ExecutionPermit`        | value  | Single-dispatch confirmed/write-ahead/lease capability                                                | `src/application/operations.rs` `ExecutionPermit`           | OperationEngine   |
 | `LocalTrustEnvelope`     | value  | E4-authorized local admission and paired audit identity                                               | `src/application/operations.rs` `LocalTrustEnvelope`        | OperationEngine   |
 | `RemoteDispatch`         | value  | Typed admitted remote execution                                                                       | `src/application/operations.rs` `RemoteDispatch`            | OperationEngine   |
@@ -1354,7 +1356,7 @@ ResourceScope is immutable pub(crate) equality-key data, never authority: only t
    3. `admit_local_trust` consumes that exact plan, rechecks actual stored preconditions and acquires E6:03 ResourceLease; durable Running precedes LocalTrustAdmitted, while engine retains active lease/work identity. No SSH or E3 commit capability is needed to establish truthful admission.
    4. `LocalTrustAdmitted::into_local_trust_admitted` returns the ORIGINAL PreparedTrustChange plus LocalTrustEnvelope; actual E3:05 commit worker later executes the inseparable SQLite key/read-back/audit transaction. Store uses the five pure projections introduced in ADR-0006:01, including `LocalTrustEnvelope::local_trust_store_view`, only after accepting sealed requests.
    5. Registered E4-owned worker joins actual local work and reports its real commit result → private `finish_local_trust`. Match operation/worker/work sets and actual persisted tail/read-back; an arbitrary Error is never joined proof. Approved local proof establishes Succeeded/Failed, insufficient evidence Unknown; settled conservative persistence precedes WorkJoined and acknowledged real lease release. No fabricated completed mutation is claimed before actual E3:05 exists.
-   6. Later public `plan_operation`/`decide_operation` delegate these SAME canonical stages. User-facing mutation UI remains delivered only by public workflow integration in08 and final presentation11.
+   6. Later public `plan_operation`/`decide_operation` delegate these SAME canonical stages. User-facing mutation UI remains delivered only by public workflow integration in 08 and final presentation 11.
 3. **Read resources (Usage 1; ticket 06).**
    1. Actual E1 ConsumerAccess from ADR-0001:03 → `bind_transport`; external ResourceQuery → `inspect_resources` validates unit/path/limit and opens an existing ConsumerTarget::Server. No Connect or mutation permission prerequisite.
    2. Units/Summary use busctl JSON, Unit/Dependencies use systemctl show, Journal uses journalctl JSON. OpenText uses separate login-user SFTP, actual UTF-8 ≤1 MiB read and mtime/size/hash FileVersion. Capability/read failure is not empty.
@@ -1386,6 +1388,194 @@ ResourceScope is immutable pub(crate) equality-key data, never authority: only t
 
 ## Open questions
 
-1. What local trust lifecycle, atomic persisted-state proof, outcome and read-only Reconciliation rules are approved?
-2. What complete Verifier/Reconciliation policy applies to each service verb and supported unit semantics, including restart timestamps, healthy states and stabilization?
-3. What complete per-type file/transfer proof, Reconciliation, local overwrite and path-race rules are approved?
+1. L1 local trust lifecycle and historical attributed commit proof are approved below. Runtime implementation and evidence remain required.
+2. S supplies the complete six-verb service policy below, including the observable 10-second window at 1-second boundaries and later-window Reconciliation. Technical property support remains to be detected.
+3. Complete per-type file/transfer proof, Reconciliation, local overwrite and race-safe path mechanisms remain unapproved. Cooperative F was rejected. No file action is enabled by S or L1.
+
+### Approved L1 local trust policy
+
+The operator approved L1 on 2026-10-31, including the explicit local-only exception. Decision approval does not implement runtime behavior.
+
+This policy approves a local-only specialization of the shared Operation lifecycle for the three exact mutation cases. The mutation effect is the authoritative SQLite trust decision, not remote service health or successful SSH authentication.
+
+Use distinct private approval cases for Accept, Replace, and Delete, with the following predicates. Do not replace the closed approval type with a generic approved boolean, caller-supplied predicate, or configurable registry.
+
+| Case    | Required precondition and consent                                                                                                                                                                                                                                                                                                    | Required atomic postcondition                                                                                                                                                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Accept  | A sealed E3 candidate matches the reviewed Server, endpoint, route, and acceptance path. The complete current endpoint key set equals the reviewed expected set. Explicit acceptance includes the TOFU warning when applicable.                                                                                                      | The selected new accepted decision exists with exactly the intended key material, fingerprint, state, provenance, and applicable timestamps. Every unrelated existing row remains unchanged. The paired commit event belongs to this Operation and revision. |
+| Replace | The expected accepted Host Key and complete reviewed key set remain current. The plan identifies the affected Server, endpoint, old key UUID, algorithm and SHA256 fingerprint, new key identity and acceptance path, and effects on shared endpoint users. Explicit replacement and any loss of evidence strength are acknowledged. | The selected old decision is replaced by exactly the reviewed new decision. Other rows are unchanged. The new state follows Adoption, Verification, or TOFU, never the fact of replacement. The paired event proves this exact before and after delta.       |
+| Delete  | The exact selected accepted Host Key and complete reviewed key set remain current. The plan identifies its Server, endpoint, UUID, algorithm, fingerprint, and consequences for other users of that authoritative endpoint. Explicit destructive deletion is acknowledged.                                                           | The selected UUID is absent. Other rows are unchanged. No replacement or substitute key is created. The paired event identifies the deleted decision and the exact remaining endpoint set.                                                                   |
+
+Support multiple accepted key algorithms without discarding sibling rows. Each requested change selects one exact key decision and validates the whole endpoint set under compare-and-swap. No bulk delete or bulk replacement is implied. If stored duplicates or conflicting entries prevent E3 from describing an unambiguous delta, the request is unavailable with that conflict named. Do not resolve ambiguity by dropping keys.
+
+A new Accept must not conceal replacement of an existing conflicting decision. A repeated exact accepted decision is shown as already present, not inserted as a duplicate. An explicit independent-verification upgrade of an existing ADOPTED or UNVERIFIED key is supported as a same-key Replace that changes evidence. Preserve that row's UUID and creation time for a same-key upgrade. When replacement changes key material, the proposed new decision has a new UUID and creation time. The old identity remains in immutable audit metadata.
+
+Adoption requires the explicit lookup provenance required by E3 and yields ADOPTED. Verification requires exact complete independent SHA256 comparison and yields VERIFIED with its verification time. TOFU requires the explicit warning and yields UNVERIFIED without a verification time. A deliberate replacement that reduces evidence strength must say so before confirmation. Discovery, drift, login success, and a previous Operation cannot supply that acknowledgement.
+
+Local commit, Verifier, and Reconciliation do not require SSH, a connected master, target availability, sudo, a remote lock, or remote reconnect. Obtaining a new candidate can still require the actual discovery or Adoption workflow. In particular, routed discovery requires the independently gated registered Jump route. Committing a previously reviewed, still-valid sealed candidate adds no fabricated second discovery prerequisite. Stale endpoint or route bindings require a new review.
+
+#### Lifecycle and atomic evidence
+
+Use the existing stages Requested, Validating, Planning, AwaitingConfirmation, Running, Verifying, and an evidence-qualified terminal outcome.
+
+1. E3 `prepare_change` creates the original sealed expected and replacement sets. E4 `prepare_local_trust` records the exact immutable review revision and impact. Only the exact approved local case can pass admission.
+2. E4 `admit_local_trust` checks the exact revision, all acknowledgements, current saved identity, current key set, and current admission. It acquires the actual identity and resource-scope lease through E6. It commits Running before returning an envelope. A conflict is rejected, never silently queued.
+3. E4 retains the lease and actual worker identity. Its envelope binds Operation UUID, plan revision, expected audit tail, write-ahead tail, lease UUID, and reserved committed-event UUID and ordinal. The original prepared change and envelope move once to the registered commit worker.
+4. In one SQLite transaction, Store checks both sealed bindings, the current expected endpoint keys, the actual audit tail, UUID and ordinal identity, and foreign keys. It applies the E3-authored delta and reads it back. The read-back must equal the complete intended replacement set, including preservation of unrelated rows. It then inserts the exact E4-authored `LocalTrustCommitted` event at the reserved contiguous ordinal. A mismatch or any failed step rolls back both the keys and that event. Commit acknowledgement follows the actual SQLite commit, not merely an attempted write or in-transaction SELECT.
+5. E4 enters Verifying and evaluates the returned facts against actual persisted audit and read-back evidence. A Store-created `TrustCommitObservation` is an input to that proof, not a verdict. The ordinary AuditAppend route must not be able to insert a free-standing `LocalTrustCommitted` fact without its inseparable trust transaction.
+6. Only the registered worker's actual completion and joined tracked work can reach the private finisher. E4 persists the proven outcome or honest Unknown before it creates WorkJoined and requests real lease release. A completion DTO, arbitrary Error, or cancellation request does not prove that work ended. Release acknowledgement is required before ownership is reported released.
+
+The persisted proof binds the original Operation, Server, endpoint, saved identity, action, plan revision, acceptance path where applicable, selected old and new key identities, and expected and intended endpoint-set digests. It also binds the actual write-ahead tail, committed-event identity and ordinal, evidence digest, and verified read-back digest. The plan and sanitized parameters retain enough of these non-secret facts to reconstruct the comparison after restart. A digest with no durable binding to the original reviewed plan is insufficient.
+
+Use one deterministic, versioned encoding in existing sanitized payloads for the digest input. Compare exact logical Host Key fields, not display strings, row order, timestamps used as chronology, or generated-file content. The endpoint-set encoding has a fixed field order and a deterministic key order by UUID. It includes every accepted Host Key field, explicit optional-value markers, and exact timestamp values. The original plan's metadata and digest identify the intended before and after sets. The implementation must not choose a different encoding during Reconciliation.
+
+Audit keeps UUIDs, fingerprints, state and acceptance-path changes, sanitized provenance descriptions, digests, consent, and errors. It does not copy source known_hosts files, private keys, passwords, passphrases, or arbitrary file contents. Public key material remains in the accepted host_keys fields. Outcome events append at current validated tails and never overwrite previous audit evidence.
+
+#### Verifier and interruption table
+
+For all three cases, success requires an attributable atomic committed event with the reviewed evidence and postcondition digests, a valid contiguous audit history, and the transaction's exact successful read-back. Accept then proves addition, Replace proves the selected transition, and Delete proves removal. Neither a final row that happens to match nor a successful function return alone proves that this Operation caused the change.
+
+| Observed boundary                                                                                                            | Approved outcome and recovery                                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rejected review or cancellation before any admitted commit work                                                              | Cancelled only after proving that no key effect was dispatched. Preserve any already committed audit facts.                                                                                                                                                                 |
+| Validation, stale revision, key-set conflict, missing consent, lease conflict, or proven write-ahead failure before key work | Blocked or Failed with no key effects, as appropriate to the recorded stage. No envelope authorizes a commit. An ambiguous write-ahead acknowledgement requires an actual history read.                                                                                     |
+| Running committed, but commit work proved not dispatched or definitively rolled back and joined                              | Failed for an attempted request, or Cancelled for a cancellation request with positive no-effect proof. Confirm the paired event is absent in the settled Store. An arbitrary Error is insufficient.                                                                        |
+| Key writes attempted, transaction failed before commit, rollback and Store settlement proved                                 | Failed with the actual storage or conflict reason. The key delta and paired event are both absent. Storage failure is not proof of rollback unless settlement is established.                                                                                               |
+| Keys, exact read-back, and paired event committed and attributable                                                           | Succeeded after E4 verification and durable outcome append. A concurrent cancellation request does not undo the commit or turn success into Cancelled.                                                                                                                      |
+| Commit acknowledgement lost, future interrupted, or caller times out                                                         | Unknown until the original worker is joined or the prior owner is conclusively gone and SQLite has settled, then read the actual keys and audit. Do not dispatch or commit again to find out.                                                                               |
+| Registered worker or transaction remains unjoined or unsettled                                                               | Preserve uncertainty and ownership. Do not issue WorkJoined or release the lease merely because the UI stopped waiting.                                                                                                                                                     |
+| Keys and paired event committed, but terminal audit append failed or its acknowledgement is ambiguous                        | Do not claim a durable Succeeded outcome. Show confirmed commit evidence if readable and the last durable stage, with outcome persistence unresolved. Read the actual tail before an outcome append. If interrupted in Running or Verifying, startup first appends Unknown. |
+| Store unreadable, audit malformed or incomplete, binding conflicts, or atomicity evidence contradicted                       | Unknown or an explicit unavailable storage error. Do not manufacture persisted Unknown if its append also fails. Block affected trust starts when authoritative trust cannot be established.                                                                                |
+| Known_hosts generation fails after a proved local commit                                                                     | The local Operation can remain Succeeded because its effect was the SQLite decision. The requested connection fails closed under E3. Never roll trust back or change evidence strength to make the connection succeed.                                                      |
+
+Approved atomicity is SQLite transaction atomicity under the accepted storage contract. It is not a signed audit or proof against an attacker coherently rewriting the entire local database. A suspected database replacement, incomplete restore, unsupported schema, or detected audit corruption makes the original proof unavailable. Do not invent database attestation to hide that boundary.
+
+#### Read-only Reconciliation for L1
+
+Startup still first converts every interrupted Running or Verifying Operation to durable Unknown with retained intent and evidence. E6 recovery completion does not mean that any local Operation succeeded or failed.
+
+For a local trust Unknown, Reconciliation can run after authoritative local storage and sole ownership are available, without waiting for remote reconnect. It reads the original immutable plan, consent, expected and intended digests, validated complete audit, and current relevant key set in a consistent Store snapshot. It establishes that the original commit worker cannot still commit, either through the actual live join or through prior-owner termination and settled SQLite recovery. Missing proof of that closure leaves Unknown.
+
+Apply the following predicates separately to Accept, Replace, and Delete.
+
+- An exact paired committed event, bound to the approved original plan and the transaction's required read-back, proves that this Operation committed its stated postcondition. L1 resolves Succeeded even if later audited trust changes supersede that postcondition. Show the later current state separately. A later deletion does not falsify a previously proven acceptance.
+- With no exact committed event, a complete valid audit, a settled original Store, and proof that no original worker can commit later, the inseparable transaction contract proves that this Operation did not commit its key effect. Resolve Failed with the no-commit evidence. A separately proven pre-effect cancellation retains its Cancelled disposition. Current rows that another Operation produced do not turn this original request into success.
+- Missing event evidence is not conclusive if the audit query failed, history is incomplete, Store provenance is uncertain, the worker may still run, the expected event identity was not durably recoverable, or out-of-band effects contradict the atomic contract. Keep Unknown and identify the missing evidence.
+- A matching current row without the exact event is not success. An absent current row without complete attributable history is not proof that a Delete caused the absence. A current value different from the original target is not by itself failure, because later legitimate changes can supersede the target.
+- Reconciliation appends only evidence and its outcome. It never accepts, replaces, deletes, replays, rolls back, regenerates known_hosts to prove the commit, or makes an SSH connection. Repeated reads can append newly available evidence but cannot repeat key effects. A new mutation needs a new explicit current request and confirmation.
+
+For L1, the exact paired event is causal persisted-state evidence because the approved transaction cannot insert that event without the exact key read-back. It is not a generic success fallback for other Operation types or for an unbound audit fact.
+
+### Approved S service policy
+
+The operator approved S on 2026-10-31. This defines systemd-observable health and later-window Reconciliation, not continuous or application-specific health. Runtime property support remains a technical prerequisite.
+
+#### Supported service semantics
+
+Approved S defines health as systemd-reported unit health, not application correctness, network reachability, or successful processing of a request.
+
+The supported system-manager units are canonical `.service` names and concrete template instances. The plan shows the canonical identity if the selected name is an alias. It records the effective unit definition and relevant dependencies. A changed definition, alias resolution, or manager identity invalidates the plan.
+
+There are three explicit service cases.
+
+- A running service has `Type=simple`, `exec`, `idle`, `notify`, `notify-reload`, `dbus`, or `forking`, with `RemainAfterExit=no`, `ExitType=main`, and a reliably identified main process. A forking service with an indeterminate guessed main PID is unsupported. The healthy tuple is exactly `active`, `running`, `success`. `MainPID` is nonzero and the service invocation does not change during stabilization.
+- A retained oneshot has `Type=oneshot`, one non-ignored `ExecStart`, and `RemainAfterExit=yes`. The healthy tuple is exactly `active`, `exited`, `success`, with `MainPID=0` and a successfully completed execution record for that invocation.
+- A completed oneshot has `Type=oneshot`, one non-ignored `ExecStart`, and `RemainAfterExit=no`. The successful completion tuple is exactly `inactive`, `dead`, `success`, with `MainPID=0` and a newly completed successful execution record. This is completion of a oneshot, not proof of a running daemon.
+
+Multi-command oneshots, ignored command failures, non-oneshot `RemainAfterExit=yes`, `ExitType=cgroup`, transient or generated units, bare templates, user managers, other unit suffixes, missing required properties, and unknown state values are unsupported by S. Read-only inspection remains available where its own Capability exists. A unit does not inherit a different case merely because its current state looks similar.
+
+Implicit effects inherent in the exact selected systemctl verb must appear in the impact review. Start and stop can affect dependencies. Enable and disable can affect install links and `Also=` units. Approved S supports those commands only if that affected set is completely resolved, readable, unchanged at admission, and included in consent and local conflict scopes. An unresolved impact set blocks the verb. This adds no extra execution command.
+
+#### Exact stabilization rule
+
+The approved window is 10 seconds measured on a local monotonic clock. It starts only after occurrence or requested-state evidence exists and the first qualifying post-execution observation arrives. The operator approved this duration and observation spacing; neither is a measured optimum.
+
+Approved S uses complete property observations at the start, at each one-second observation boundary, and at the end. No missing scheduled observation may count as healthy. It also consumes available read-only systemd change and invocation evidence between observations. Any observed contrary tuple, failed invocation, main-process replacement, new restart, or definition change fails that window. It does not reset the window until eventual health happens to pass. An incomplete observation or lost connection produces Unknown instead of a failed health result.
+
+Important evidence limit. Eleven snapshots do not prove that no shorter transition occurred between them. Read-only property notifications also must not be assumed to provide an exhaustive transition history without validating their actual semantics. Approved S means stable at every required observation and with no contrary intervening evidence. It does not claim mathematical continuity or application health. The approved interpretation of US-007-AC3 is this observable boundary window. It does not claim proof of every instant or an exhaustive transition history.
+
+The same-boot requirement spans baseline, occurrence, and the whole accepted window. Read `boot_id` around evidence collection. Monotonic unit timestamps are compared only within that boot. A reboot cannot be repaired by comparing a larger number from another boot. A local `Instant` from an earlier application process is not a restart-persistent clock.
+
+#### Start
+
+Supported cases are the running-service and both oneshot cases above, with `CanStart`, exact `sudo -n -l /usr/bin/systemctl start <unit>` permission, a complete impact set, and supported evidence.
+
+Success for an inactive service requires a new successful invocation or applicable execution timestamp, the case-specific target tuple, and the full approved window. For an already healthy running service or retained oneshot, an observed completed start request plus unchanged healthy state and the full window may establish an explicit no-op success. A completed non-retained oneshot must run again. Its old `inactive/dead/success` is never enough.
+
+Failure requires a correlated failed start or execution result, a rejected start before effect, or complete observation of a definitively failed target after the request. An uncompleted job or a missing invocation record is Unknown, not failure. A condition-skipped unit is not reported as having executed its oneshot.
+
+Read-only Reconciliation combines the retained baseline and request evidence with current invocation or execution evidence and a new complete observation window. It may resolve success only for the original requested start or explicit no-op case. A retained correlated failed job or invocation can establish failure. Merely finding a healthy unit later cannot prove that this start ran. Missing correlation, reboot-invalidated execution evidence, unload-induced loss of evidence, or a different invocation remains Unknown.
+
+#### Stop
+
+Supported cases are the three service cases with `CanStop`, exact stop permission, and resolved propagation effects. Success requires a completed stop request, `inactive/dead`, no main or control process, no remaining service workload according to the supported service semantics, and no reactivation during the approved 10-second observation window. A fresh non-success Result produced by stopping is failure, even if processes have disappeared. No extra `reset-failed` is issued.
+
+An already quiescent `inactive/dead` unit may have a historical non-success Result. Its explicit no-op stop can succeed only if that same historical Result is retained, there is no new failed stop, and the quiescence window passes. The UI reports stopped with the historical failure, not healthy. An initially `failed/failed` unit is outside this stop case unless the exact command actually produces the supported final state. It is never silently reset.
+
+A correlated failed stop or observed failed quiescence window establishes failure. Reactivation is not silently prevented by disabling sockets, timers, dependencies, or restart settings. Missing process evidence or ambiguous remaining work is Unknown.
+
+Read-only Reconciliation requires retained completion or correlated job evidence plus the original invocation's stopped-state evidence and a fresh quiescence window. A newer invocation or a later unrelated stop does not retroactively resolve the original request. Definite retained failure remains failure. An absent unit or a current inactive state alone remains Unknown.
+
+#### Restart
+
+Supported cases are the running-service and both oneshot cases with exact restart permission and supported timestamps. `systemctl restart` can start an inactive unit. The plan states whether the request is restarting a running invocation or starting an inactive one through restart semantics.
+
+For the running-service and retained-oneshot cases, capture `ActiveEnterTimestampMonotonic` and `ExecMainStartTimestampMonotonic` before dispatch. Require a strictly greater applicable active-entry timestamp and a strictly greater known execution-start timestamp afterward, with unchanged boot identity. For a completed oneshot that never enters active state, use its known execution-start timestamp and successful completion record instead. A real zero baseline can mean never executed. A missing property is not fabricated as zero.
+
+Occurrence alone is not success. The new invocation must satisfy its case-specific tuple and the full approved stabilization window. An increased timestamp followed by an unhealthy tuple is an occurred but unhealthy restart and therefore failure, not success. Automatic retries that change invocation during the window fail that window rather than conceal a crash loop.
+
+A correlated failed restart or failed new invocation can establish failure even without successful occurrence. Timestamp equality alone, inability to read, an uncompleted job, or changed `boot_id` gives Unknown unless independent retained evidence already proves a result. Reboot alone proves neither success nor failure.
+
+Read-only Reconciliation may use retained same-boot occurrence evidence, or reconstruct it from the original baseline and surviving same-boot execution records, then require a new complete health window. The result states that health was verified later. It does not claim health during an unobserved gap. A different boot, missing baseline, overwritten execution history, or evidence of an unrelated later invocation remains Unknown. No second restart is attempted.
+
+#### Reload
+
+Supported reload cases are a healthy running service with `CanReload` and either the systemd `Type=notify-reload` completion protocol or a documented synchronous `ExecReload` command. Reload of a retained or completed oneshot is unsupported by S. A signal-only asynchronous `ExecReload=kill -HUP ...` is unsupported because successful signal delivery does not establish reload completion.
+
+Success requires evidence that this reload actually ran and completed successfully, `ReloadResult=success`, unchanged service invocation and main execution-start timestamp, the original running-service healthy tuple, and the full approved window. For synchronous `ExecReload`, retain the new execution start and completion records and successful status for every reload command. For `notify-reload`, require a correlated completed reload job or equivalent actual protocol-completion evidence. An old `ReloadResult=success` plus a running process is insufficient. Approved S proves systemd-recognized reload completion, not that an intended configuration value became effective.
+
+A correlated reload failure, timeout, unsuccessful reload execution, changed main invocation during reload, or failed health window is failure of the approved reload predicate. If evidence cannot establish whether reload completed, the result is Unknown even when the service remains running.
+
+Read-only Reconciliation uses the original reload execution or correlated completion evidence, surviving ReloadResult, unchanged invocation, and a fresh full health window. A surviving new synchronous ExecReload completion record can resolve an interrupted observation. A notify-reload request whose job or protocol evidence was lost may remain Unknown permanently. There is no generic reload counter or timestamp to invent. Later unrelated reloads, unreadable records, reboot, or overwritten records leave Unknown.
+
+#### Enable
+
+Supported enablement is persistent system-manager enablement of the supported installed service cases, including concrete instances, with complete install information and the full resolved install-impact set. The requested postcondition is `UnitFileState=enabled` for the selected concrete service and the required persistent install links for every resolved affected unit. S rejects static, indirect, generated, transient, masked, runtime-only, externally linked, unresolved-alias, and bare-template cases unless they are represented by a separately approved exact install policy.
+
+Success requires a completed enable request and independent read-back of the enabled state and exact required link targets for the unchanged install definitions. An already enabled unit can be an explicit verified no-op. ActiveState is not enablement evidence. No `--now`, `start`, `unmask`, or separately dispatched `daemon-reload` is added. The manager reload inherent in systemctl enable is disclosed, not represented as an extra user request.
+
+Failure requires a definite request rejection or an observed completed request whose required enabled state or install links are definitively wrong in the supported stable install case. Partial link creation is retained with failure. Missing reads or possible intervening install changes yield Unknown.
+
+Read-only Reconciliation reads the unchanged install definitions, selected unit's persistent state, and complete expected links. Matching the approved install postcondition can establish success for this desired-state operation. A contrary state proves failure only with retained completed-request evidence and no invalidating external change. Otherwise it remains Unknown. Reboot does not itself invalidate persistent links, but it does not excuse missing target identity or changed definitions.
+
+#### Disable
+
+Supported disablement uses the same install boundary but proves its own different postcondition. The selected service must report `UnitFileState=disabled`, and all persistent install links that the exact disable operation removes for the resolved unit and its `Also=` closure must be absent. Manually created affected links belong in the impact review because systemctl disable can remove more links than a prior enable created.
+
+Success requires completed-request evidence plus that independent state and link read-back, or a verified explicit already-disabled no-op. Runtime-only residual enablement is not silently called persistent fully disabled. An active service can remain active and still satisfy disable. No stop, mask, or `--now` is added.
+
+Failure requires definite rejection or definite unmet disable postconditions after a completed request under unchanged install assumptions. Missing link enumeration, an unsupported install state, or possible intervening mutation is Unknown. Partial removal is retained as an effect.
+
+Read-only Reconciliation checks the original complete removal set and disabled state without removing anything. Matching unchanged desired-state evidence can establish success. Retained definite failure can establish failure. A later enabled, missing, or changed unit does not alone prove that the original disable failed, so otherwise the outcome remains Unknown.
+
+#### Material service approval
+
+The material choices are the meaning of health, acceptance of the explicit oneshot semantics, the 10-second observation rule, whether later verified health can resolve interrupted verification, the excluded unit cases, and the disclosed dependency and install effects. Exact property support, actual reload synchrony, actual available job evidence, permission, and timestamp behavior are technical facts to detect or establish from documentation and later isolated fixtures. An operator cannot approve a missing property into existence.
+
+### Approval binding and independent file gate
+
+EnabledMutation has exactly ServiceStart, ServiceStop, ServiceRestart, ServiceReload, ServiceEnable and ServiceDisable. Each case is private OperationEngine data. It selects only the corresponding approved S predicate for the existing OperationRequest, selected ServiceVerb, Server, original ConnectionIdentity, canonical unit, plan revision, current evidence, exact permission, and acquired lease. It is never permission on its own. A public property, dialog acknowledgement, service observation or caller-created view cannot construct an ExecutionPermit. Plan and admission recheck every supported-unit assumption and the complete impact set. Missing technical evidence blocks the affected case even though S is approved.
+
+LocalTrustApproval has exactly Accept, Replace and Delete. These private cases select L1 for the existing reviewed Trust request and original sealed E3 delta, not arbitrary SQL or a new policy registry. The envelope and actual registered worker retain the existing Operation, revision, identity, audit-tail, event, and lease bindings. Current connection eligibility remains E3's independent T3 gate.
+
+The operator rejected cooperative-only file candidate F. No file mutation case is added to EnabledMutation. DownloadProofApproval remains empty. File ticket 03 and all transitively blocked whole-ticket actions remain needs-info. US-011-AC4 and INV-6 retain full target/path/symlink race safety. Repeated lstat, hashes, REALPATH, posix-rename, final rechecks, consent and local leases cannot establish atomic no-follow confinement or conditional replacement. No helper, remote lock, privilege change, or weaker namespace assumption is approved here.
+
+The approved local-only L1 exception specializes broad remote-script and reconnect wording in product section 9.3/9.4, ADR-0004, the glossary Verifier/Reconciliation definitions and E6 US-010-AC1/AC2. The preserved source text remains unchanged. Remote Operations still require the normal current gated connection. Local trust instead requires authoritative local Store, sole ownership, actual worker closure and settled SQLite. Startup first persists interrupted Running/Verifying as Unknown for both branches.
+
+Usage 2, plan_operation, prepare_local_trust, admit_local_trust, decide_operation, finish_local_trust, cancel_operation and reconcile_operation consume these exact policies without signature changes. INV-1 admits only supported S/L1 cases, INV-11 requires their exact proof, INV-12 prohibits replay, and INV-15 requires attributable settled local evidence. Ordered flows 2/4/5 preserve the same owners and lifecycle. First proof owners remain04 for audit/interrupted Unknown, 05 for local admission/joined completion, E3:05 for atomic key/event commit, 08 for all six service verbs and 10 for cancellation/Reconciliation. File proof remains blocked in 09.
+
+### Consent and unsupported local cases
+
+The existing OperationPlan.impact and exact revision expose all S dependency, propagation and install-link effects and L1 shared-endpoint effects. RequestedChange acknowledges those reviewed effects. Apply DestructiveImpact and UnmanagedResource when required, and TofuWarning, TrustReplacement and TrustDeletion for their exact existing cases. A reviewed replacement that lowers evidence strength must disclose that loss before its TrustReplacement acknowledgement. No new public Confirmation variant, flow or function signature is needed. An acknowledgement never replaces current evidence, a sealed delta or lease admission.
+
+Local arbitrary SQL, raw caller-built key vectors, out-of-engine trust writes, automatic drift acceptance, partial independent comparisons, missing provenance, stale identity or route bindings, incomplete consent, unresolved expected-key ambiguity and mismatched write-ahead/lease identity cannot dispatch. Remote health, generated-file contents, SSH authentication, function exit and current-row coincidence are not local commit proof. Unknown stays Unknown when closure, original plan attribution or complete persisted proof is unavailable. A separately confirmed new mutation cannot prove the previous request.

@@ -1,6 +1,6 @@
 # 04: Generate and self-check isolated direct-start and attachment policy
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Blocked by:** 01: Read saved inventory and resolve complete Connection Identities.
 **External blockers:** ADR-0006:01, ADR-0001:01, ADR-0003:04.
 **Source:** `US-001-AC1`, `US-001-AC2`, `US-001-AC3`, `US-001-AC4`, `US-002-AC1`, `US-002-AC2`, `US-002-AC3`, `US-002-AC4`, `US-002-AC5`, `US-002-AC6`, `US-002-AC7`, `US-003-AC1`, `US-003-AC2`, `US-003-AC3`, `US-003-AC4`, `US-003-AC5`, `US-005-AC1`, `US-005-AC2`, `US-005-AC3`, `US-005-AC4`, `US-010-AC2`, `US-010-AC5`, `US-010-AC6`.
@@ -121,3 +121,7 @@ bun node_modules/prettier/bin/prettier.cjs --check --ignore-unknown .scratch/adr
 ## Do not touch
 
 Other tickets' public method ownership, canonical shared declaration ownership ADR-0006:01, original spec text above `# Design`, unapproved human policy values, unrelated source/configuration and user SSH/known_hosts files. Do not add recursive Include/re-import/diff, arbitrary OpenSSH evaluation, direct Store-vector writes, implicit Adoption or a second launch API.
+
+## Comments
+
+E1 environment, T3 trust eligibility, L1 local trust and S service policy decisions are approved in their canonical Designs. Readiness describes a policy-complete implementation assignment after its listed real producer prerequisites land, not an existing capability or runtime acceptance. No implementation or source acceptance criterion is checked by this update. File/transfer policy 03 remains independently unapproved; no positive file or download admission can be fabricated for downstream scenarios.
