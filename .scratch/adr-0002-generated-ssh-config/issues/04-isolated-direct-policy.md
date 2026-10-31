@@ -66,7 +66,7 @@ Direct compilation and attachment: complete generation/validation leg; actual tr
 - Out: `CompiledConfiguration` → 05
 - Out: `CompiledConfiguration` → final
 
-External producer and gate details: ADR-0006:01 declares shared data; ADR-0001:01 owns reservation/generation declaration/data prerequisites (actual reservations are later minted by ADR-0001:02). ADR-0003:04 is the actual TrustGate/PreparedStart producer; its eligibility policy is unresolved. Original reservation and resolution are handed back, never re-created. Actual E1:02/03 launch/consumer issuance is a downstream integration producer, not a hidden claim that it exists today.
+External producer and gate details: ADR-0006:01 declares shared data; ADR-0001:01 owns reservation/generation declaration/data prerequisites (actual reservations are later minted by ADR-0001:02). ADR-0003:04 is the actual TrustGate/PreparedStart producer under approved T3 eligibility. Original reservation and resolution are handed back, never re-created. Actual E1:02/03 launch/consumer issuance is a downstream integration producer, not a hidden claim that it exists today.
 
 ## Steps
 
