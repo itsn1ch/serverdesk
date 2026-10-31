@@ -1,4 +1,5 @@
 # Live Metrics with Bounded In-Memory Retention
+
 Status: ready-for-agent
 Source: Accepted ADR-0005; connected ADR-0001, ADR-0002, ADR-0003 and ADR-0006; docs/spec.md §§3, 4.9, 6, 7, 8, 9, 12–16 and 18; GLOSSARY.md.
 
@@ -224,3 +225,392 @@ Expose actual current, stale, unavailable, error, loading and empty states in Ov
 - §§12–16 and 18 ground ownership, threading, persistence exclusions, actionable errors, benchmark caveats, real test fixtures and visible loading/empty/error/stale behavior.
 - GLOSSARY.md supplies Server, Connection Identity, Connection State, Trust State, Metric Sample, Freshness, Collector and Capability terminology.
 - The repository currently contains only a dependency-free Rust greeting program; no collection, GTK behavior, benchmarks or tests above are claimed as already implemented or passed.
+
+# Design
+
+## Usage
+
+1. **Configure:** E6 supplies admitted ReadyOwnership, actual Store, E2 Configuration, E1 ConsumerAccess and a dedicated actual `connections.observe().await?` subscription to `Monitoring::spawn`. `monitoring.configure(settings).await?` validates, persists a sealed SettingsCommit and applies schedules, never samples.
+2. **Refresh:** `monitoring.refresh(server_id, RefreshKind::All).await?` reuses or schedules one actual fixed-loop Collector over that Server's existing master, never Connects.
+3. **Read and exit:** `monitoring.observe(server_id).await?` provides real memory history and sequenced changes; GTK renders per-metric Freshness and independent pending/stale/unavailable/error states. Runtime calls `monitoring.quiesce().await?` before transport shutdown.
+
+E1–E6 qualify canonical owner types, not existing functionality. ADR-0006:01 introduces shared declarations and the specifically assigned pure Store projections in their canonical modules, including SettingsCommit::settings_write_view; it does not mint E5 runtime authority. CollectorSpec and RawObservation are immutable pub(crate)-readable DTOs; they grant no execution/launch authority. E1 stamps RawObservation.collector_generation with the actual ConsumerParts.id and collected_at with local receipt Instant; remote data cannot supply either. SettingsCommit fields and constructor are private to Monitoring; neither a public MonitoringSettings nor SettingsWriteView can be submitted as SaveSettings authority. Samples and raw observations have no persistence route.
+
+## Types
+
+```rust
+pub struct CollectionSchedule {
+    pub resource_interval: Duration,
+    pub service_interval: Duration,
+    pub disk_interval: Duration,
+}
+pub struct MonitoringSettings {
+    pub default_schedule: CollectionSchedule,
+    pub per_server: Vec<(Uuid, CollectionSchedule)>,
+    pub concurrent_collectors: usize,
+}
+pub enum RefreshKind { Metrics, SystemInformation, All }
+pub enum CollectorPhase {
+    WaitingForConnection, WaitingForSlot, Collecting, BackingOff, Stopped,
+}
+pub struct Collector {
+    pub server_id: Uuid,
+    pub phase: CollectorPhase,
+    pub master_generation: Option<u64>,
+    pub consumer_id: Option<Uuid>,
+    pub backoff_attempt: u32,
+    pub next_attempt_at: Option<Instant>,
+    pub failure: Option<E6::Failure>,
+}
+pub enum MetricName {
+    Hostname, OperatingSystem, Kernel, CpuUsage, LoadAverage,
+    MemoryTotal, MemoryAvailable,
+    DiskTotal { filesystem: String },
+    DiskAvailable { filesystem: String },
+    NetworkReceive { interface: String },
+    NetworkTransmit { interface: String },
+    Uptime, Services,
+}
+pub enum MetricUnit {
+    Percent, Bytes, BytesPerSecond, Seconds, Count, Text, None,
+}
+pub enum MetricValue {
+    Number(f64),
+    Text(String),
+    ServiceSummary(E4::ServiceSummary),
+}
+pub enum MetricStatus {
+    Fresh { value: MetricValue },
+    Stale { value: MetricValue },
+    Unavailable { reason: String },
+    Error { failure: E6::Failure },
+}
+pub struct MetricSample {
+    pub server_id: Uuid,
+    pub metric_name: MetricName,
+    pub unit: MetricUnit,
+    pub remote_observed_at: Option<SystemTime>,
+    pub collected_at: Instant,
+    pub status: MetricStatus,
+}
+pub struct Freshness {
+    pub elapsed_since_collection: Duration,
+}
+pub struct MetricSeries {
+    pub metric_name: MetricName,
+    pub unit: MetricUnit,
+    pub samples: Vec<MetricSample>,
+    pub freshness: Option<Freshness>,
+}
+pub struct MetricHistory {
+    pub server_id: Uuid,
+    pub collector: Collector,
+    pub series: Vec<MetricSeries>,
+    pub collection_pending: bool,
+    pub observed_at: Instant,
+}
+pub enum MonitoringChanged {
+    CollectorChanged { sequence: u64, collector: Collector },
+    SampleCollected { sequence: u64, sample: MetricSample },
+    SamplesBecameStale { sequence: u64, server_id: Uuid, names: Vec<MetricName> },
+    HistoryExpired { sequence: u64, server_id: Uuid, before: Instant },
+    ResyncRequired { sequence: u64, server_id: Uuid },
+}
+pub struct Monitoring { tx: mpsc::Sender<MonitoringMessage> }
+pub(crate) struct CollectorSpec {
+    pub(crate) server_id: Uuid,
+    pub(crate) schedule: CollectionSchedule,
+    pub(crate) services: E4::ServiceRead,
+    pub(crate) collect_system_information: bool,
+}
+pub(crate) enum RawMetric {
+    CpuCounters { total: u64, idle: u64 },
+    NetworkCounters { interface: String, received: u64, transmitted: u64 },
+    Number { name: MetricName, value: f64, unit: MetricUnit },
+    Text { name: MetricName, value: String },
+    Services(E4::ServiceSummary),
+    Unavailable { name: MetricName, reason: String },
+    Error { name: MetricName, failure: E6::Failure },
+}
+pub(crate) struct RawObservation {
+    pub(crate) server_id: Uuid,
+    pub(crate) collector_generation: Uuid,
+    pub(crate) record_number: u64,
+    pub(crate) remote_boot_id: Option<Uuid>,
+    pub(crate) remote_observed_at: Option<SystemTime>,
+    pub(crate) collected_at: Instant,
+    pub(crate) observation: RawMetric,
+}
+pub(crate) enum CounterValue {
+    Cpu { total: u64, idle: u64 },
+    Network { received: u64, transmitted: u64 },
+}
+pub(crate) struct CounterBaseline {
+    metric_name: MetricName,
+    collector_generation: Uuid,
+    record_number: u64,
+    remote_boot_id: Option<Uuid>,
+    collected_at: Instant,
+    counters: CounterValue,
+}
+pub(crate) struct CollectorBuffer {
+    server_id: Uuid,
+    samples: VecDeque<MetricSample>,
+    last_record_number: Option<u64>,
+    baselines: Vec<CounterBaseline>,
+}
+pub(crate) struct SettingsCommit {
+    settings: MonitoringSettings,
+}
+pub(crate) struct SettingsWriteView<'a> {
+    pub(crate) settings: &'a MonitoringSettings,
+}
+pub(crate) enum MonitoringStoreRequest {
+    ReadSettings,
+    SaveSettings(SettingsCommit),
+}
+pub(crate) enum MonitoringStoreResult {
+    Settings(MonitoringSettings),
+    Saved(MonitoringSettings),
+}
+pub(crate) enum MonitoringMessage {
+    Configure { settings: MonitoringSettings, reply: E6::Reply<MonitoringSettings> },
+    Refresh { server_id: Uuid, kind: RefreshKind, reply: E6::Reply<Collector> },
+    Observe {
+        server_id: Uuid,
+        reply: E6::Reply<E6::Subscription<MetricHistory, MonitoringChanged>>,
+    },
+    ConnectionChanged { change: E1::ConnectionChanged },
+    ConnectionSnapshot {
+        subscription: E6::Subscription<E1::ConnectionView, E1::ConnectionChanged>,
+    },
+    Completed(MonitoringCompletion),
+    Quiesce { reply: E6::Reply<()> },
+}
+pub(crate) enum MonitoringCompletion {
+    SettingsLoaded { result: Result<MonitoringSettings, E6::Failure> },
+    SettingsApplied {
+        request_id: Uuid,
+        result: Result<MonitoringSettings, E6::Failure>,
+    },
+    ConsumerOpened {
+        server_id: Uuid,
+        open_request_id: Uuid,
+        result: Result<E1::Consumer, E6::Failure>,
+    },
+    RecordReceived(RawObservation),
+    ConsumerJoined {
+        server_id: Uuid,
+        consumer_id: Uuid,
+        result: Result<E1::ChannelEnd, E6::Failure>,
+    },
+    ConnectionFeedLost { failure: E6::Failure },
+}
+impl SettingsCommit {
+    pub(crate) fn settings_write_view(&self) -> SettingsWriteView<'_>;
+}
+impl Monitoring {
+    pub(crate) fn spawn(
+        ready: E6::ReadyOwnership,
+        store: E6::Store,
+        configuration: E2::Configuration,
+        consumers: E1::ConsumerAccess,
+        connection_events: E6::Subscription<E1::ConnectionView, E1::ConnectionChanged>,
+    ) -> Monitoring;
+
+    pub async fn configure(
+        &self, settings: MonitoringSettings,
+    ) -> Result<MonitoringSettings, E6::Failure>;
+
+    pub async fn refresh(
+        &self, server_id: Uuid, kind: RefreshKind,
+    ) -> Result<Collector, E6::Failure>;
+
+    pub async fn observe(
+        &self, server_id: Uuid,
+    ) -> Result<E6::Subscription<MetricHistory, MonitoringChanged>, E6::Failure>;
+
+    pub(crate) async fn quiesce(
+        &self,
+    ) -> Result<(), E6::Failure>;
+}
+```
+
+## Contract
+
+### Vocabulary
+
+| Name                     | Kind   | Meaning                                                                                 | Source of truth                                          | Writer                                  |
+| ------------------------ | ------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------- |
+| `CollectionSchedule`     | value  | Positive actual resource/service/disk intervals                                         | `src/domain/metrics.rs` `CollectionSchedule`             | `none (immutable)`                      |
+| `MonitoringSettings`     | value  | Default/per-Server schedules and effective Collector bound                              | `src/domain/metrics.rs` `MonitoringSettings`             | `none (immutable)`                      |
+| `RefreshKind`            | enum   | Requested real read scope                                                               | `src/domain/metrics.rs` `RefreshKind`                    | `none (immutable)`                      |
+| `CollectorPhase`         | enum   | Waiting/collecting/backoff/stopped lifecycle                                            | `src/domain/metrics.rs` `CollectorPhase`                 | `none (immutable)`                      |
+| `Collector`              | entity | One Server collection scheduling observation                                            | `src/domain/metrics.rs` `Collector`                      | `src/domain/metrics.rs`                 |
+| `MetricName`             | enum   | Metric identity including filesystem or interface dimension                             | `src/domain/metrics.rs` `MetricName`                     | `none (immutable)`                      |
+| `MetricUnit`             | enum   | Explicit immutable unit of measure                                                      | `src/domain/metrics.rs` `MetricUnit`                     | `none (immutable)`                      |
+| `MetricValue`            | enum   | Actual finite numeric, textual or structured service value                              | `src/domain/metrics.rs` `MetricValue`                    | `none (immutable)`                      |
+| `MetricStatus`           | enum   | Fresh/stale value or unavailable/error without numeric substitute                       | `src/domain/metrics.rs` `MetricStatus`                   | `none (immutable)`                      |
+| `MetricSample`           | value  | Contextual actual observation with monotonic local timestamp                            | `src/domain/metrics.rs` `MetricSample`                   | `none (immutable)`                      |
+| `Freshness`              | value  | Derived elapsed local time since successful collection                                  | `src/domain/metrics.rs` `Freshness`                      | `none (immutable)`                      |
+| `MetricSeries`           | value  | One metric/unit history and Freshness projection                                        | `src/domain/metrics.rs` `MetricSeries`                   | `none (immutable)`                      |
+| `MetricHistory`          | value  | Explicit Server memory history plus pending/lifecycle state                             | `src/domain/metrics.rs` `MetricHistory`                  | `none (immutable)`                      |
+| `MonitoringChanged`      | enum   | Sequenced collection, stale, expiration or resync fact                                  | `src/domain/metrics.rs` `MonitoringChanged`              | `src/domain/metrics.rs`                 |
+| `Monitoring`             | entity | Sole scheduling/settings facade                                                         | `src/application/monitoring.rs` `Monitoring`             | `src/application/monitoring.rs`         |
+| `CollectorSpec`          | value  | Immutable fixed-loop Server/schedule/read selection without caller-chosen channel epoch | `src/application/monitoring.rs` `CollectorSpec`          | `none (immutable)`                      |
+| `RawMetric`              | enum   | Actual source counter, value, absence or failure                                        | `src/infrastructure/collector/mod.rs` `RawMetric`        | `none (immutable)`                      |
+| `RawObservation`         | value  | Actual typed record; E1 stamps channel UUID epoch and local monotonic receipt time      | `src/infrastructure/collector/mod.rs` `RawObservation`   | `none (immutable)`                      |
+| `CounterValue`           | enum   | Private CPU-total/idle or interface receive/transmit counter evidence                   | `src/application/monitoring.rs` `CounterValue`           | `none (immutable)`                      |
+| `CounterBaseline`        | value  | Previous comparable private counter evidence                                            | `src/application/monitoring.rs` `CounterBaseline`        | `none (immutable)`                      |
+| `CollectorBuffer`        | entity | One Collector-owned ephemeral sample ring and baseline                                  | `src/application/monitoring.rs` `CollectorBuffer`        | `src/application/monitoring.rs`         |
+| `SettingsCommit`         | value  | Monitoring-created validated immutable settings write authority                         | `src/application/monitoring.rs` `SettingsCommit`         | `src/application/monitoring.rs`         |
+| `SettingsWriteView`      | value  | Borrowed read projection for the Store adapter                                          | `src/application/monitoring.rs` `SettingsWriteView`      | `none (immutable)`                      |
+| `MonitoringStoreRequest` | enum   | Closed settings-only persistence command                                                | `src/application/monitoring.rs` `MonitoringStoreRequest` | `none (immutable)`                      |
+| `MonitoringStoreResult`  | enum   | Actual settings read/save result                                                        | `src/application/monitoring.rs` `MonitoringStoreResult`  | `none (immutable)`                      |
+| `MonitoringMessage`      | enum   | Private scheduling command/feed/completion protocol                                     | `src/application/monitoring.rs` `MonitoringMessage`      | `none (immutable)`                      |
+| `MonitoringCompletion`   | enum   | Owned settings/open/record/join/feed worker result                                      | `src/application/monitoring.rs` `MonitoringCompletion`   | `none (immutable)`                      |
+| `ReadyOwnership`         | value  | Current admitted primary capability                                                     | `src/application/runtime.rs` `ReadyOwnership`            | `src/application/runtime.rs`            |
+| `Store`                  | entity | Sole serialized actual SQLite owner                                                     | `src/infrastructure/storage/mod.rs` `Store`              | `src/infrastructure/storage/mod.rs`     |
+| `Failure`                | value  | Structured actionable failure                                                           | `src/domain/error.rs` `Failure`                          | `none (immutable)`                      |
+| `Configuration`          | entity | Saved Server lookup facade                                                              | `src/application/configuration.rs` `Configuration`       | `src/application/configuration.rs`      |
+| `Server`                 | entity | Explicit saved inventory Server                                                         | `src/domain/inventory.rs` `Server`                       | `src/application/configuration.rs`      |
+| `Connection`             | entity | Last observed shared transport lifecycle                                                | `src/domain/connection.rs` `Connection`                  | `src/application/connection_manager.rs` |
+| `ConnectionChanged`      | event  | Sequenced transport observation                                                         | `src/domain/connection.rs` `ConnectionChanged`           | `src/application/connection_manager.rs` |
+| `ConsumerAccess`         | value  | Restricted existing-master channel capability                                           | `src/application/connection_manager.rs` `ConsumerAccess` | `none (immutable)`                      |
+| `ConsumerTarget`         | enum   | Existing Server/generation selector                                                     | `src/application/connection_manager.rs` `ConsumerTarget` | `none (immutable)`                      |
+| `Consumer`               | entity | Actual registered typed channel                                                         | `src/application/connection_manager.rs` `Consumer`       | `src/application/connection_manager.rs` |
+| `ConsumerParts`          | value  | Moved unique receiver and generation                                                    | `src/application/connection_manager.rs` `ConsumerParts`  | `none (immutable)`                      |
+| `ChannelEnd`             | value  | Actual joined channel termination facts                                                 | `src/application/connection_manager.rs` `ChannelEnd`     | `src/application/connection_manager.rs` |
+| `ServiceRead`            | enum   | Read-only structured systemd selection                                                  | `src/domain/resource_observation.rs` `ServiceRead`       | `none (immutable)`                      |
+| `ServiceSummary`         | value  | Actual structured non-verifying service observations                                    | `src/domain/resource_observation.rs` `ServiceSummary`    | `none (immutable)`                      |
+| `Reply`                  | value  | Private asynchronous result endpoint                                                    | `src/domain/error.rs` `Reply`                            | `none (immutable)`                      |
+| `Subscription`           | value  | Snapshot and sequenced observation receiver                                             | `src/domain/error.rs` `Subscription`                     | `none (immutable)`                      |
+
+### Functions
+
+### `Monitoring::spawn(ready: E6::ReadyOwnership, store: E6::Store, configuration: E2::Configuration, consumers: E1::ConsumerAccess, connection_events: E6::Subscription<E1::ConnectionView, E1::ConnectionChanged>) -> Monitoring`
+
+- **Intent.** Establish admitted scheduling from actual persisted settings and a dedicated connection feed.
+- **Owner.** `src/application/monitoring.rs`
+- **Reads.** ReadyOwnership, Store, Configuration, ConsumerAccess, connection subscription.
+- **Writes.** Monitoring, Collector, CollectorBuffer.
+- **Preconditions.** Current primary admission; actual E1 capability and separate E1 observation subscription exist.
+- **Postconditions.** Installs Server-keyed scheduler, settings-load worker and sequenced connection receiver; begins with empty in-process history. Actual connected eligible Servers may collect; initial settings loading/error is observable, never a fabricated successful default read. Defaults apply only to genuinely absent settings.
+- **Invariants.** INV-1, INV-2, INV-3.
+- **Errors.** Settings schema/read/validation failure is reported and collection admission stays blocked until resolved; channel/source failures remain explicit domain events.
+- **Idempotency.** One scheduler per primary, never per page; no restored samples or extra master.
+
+### `Monitoring::configure(&self, settings: MonitoringSettings) -> Result<MonitoringSettings, E6::Failure>`
+
+- **Intent.** Save validated sampling settings and make the requested scheduling effective.
+- **Owner.** `src/application/monitoring.rs`
+- **Reads.** MonitoringSettings, Collector, Store settings.
+- **Writes.** SettingsCommit, effective settings, Collector scheduling.
+- **Preconditions.** Positive representable intervals and concurrency; overrides unique and refer to saved Servers.
+- **Postconditions.** Serializes configuration changes, validates and constructs private SettingsCommit, joins surplus channels before saving/lowering effective bound; actual Store acknowledgement precedes effective-settings success. Defaults are resource 5s, service 15s, disk 30s, concurrency 10; only settings persist. Worker completions keep owner mailbox serviceable.
+- **Invariants.** INV-1, INV-2, INV-3.
+- **Errors.** Invalid input changes nothing; stop/join or Store failure leaves prior effective settings and explicit error, never claims lower bound active. Already stopped channels may be rescheduled under prior settings; no sample is restamped.
+- **Idempotency.** Identical applied settings reuse state; pending identical change joins; crash reloads actual committed settings, never sample history.
+
+### `SettingsCommit::settings_write_view(&self) -> SettingsWriteView<'_>`
+
+- **Intent.** Let Store persist validated settings without accepting arbitrary MonitoringSettings writes.
+- **Owner.** `src/application/monitoring.rs`
+- **Introducing ticket.** ADR-0006:01 implements this infallible projection in the canonical E5 module before Store::request; ADR-0005:01 alone creates actual validated SettingsCommit values through configure.
+- **Reads.** SettingsCommit.
+- **Writes.** None.
+- **Preconditions.** Commit constructed only by Monitoring after configure validation.
+- **Postconditions.** Borrows exact settings authorized for settings-only transaction; view does not mint commit and no Store entry accepts a view or arbitrary settings for SaveSettings.
+- **Invariants.** INV-3.
+- **Errors.** Infallible projection; transaction failures remain Store errors.
+- **Idempotency.** Repeatable inspection of one immutable commit, no additional write or sample persistence.
+
+### `Monitoring::refresh(&self, server_id: Uuid, kind: RefreshKind) -> Result<Collector, E6::Failure>`
+
+- **Intent.** Request actual fresh observations for the explicit Server without independently connecting.
+- **Owner.** `src/application/monitoring.rs`
+- **Reads.** Server, current Connection/Capabilities, MonitoringSettings, Collector.
+- **Writes.** Collector, RawObservation, MetricSample, CollectorBuffer.
+- **Preconditions.** Saved Server exists; admitted usable master and Collector slot required for channel open.
+- **Postconditions.** Reuses one Server Collector or reports WaitingForConnection/WaitingForSlot. A new CollectorSpec carries Server/read schedule; the actual E1 adapter stamps collector_generation with ConsumerParts.id and collected_at with local receipt Instant; E1 open uses ConsumerTarget::Server then into_consumer_parts. Fixed loop reads accepted sources at actual configured cadences and event-based system info; explicit refresh requests actual observations, not retimestamped old values.
+- **Invariants.** INV-1, INV-2, INV-3.
+- **Errors.** Unavailable source/Capability, denied read or lost connection yields per-metric unavailable/error or lifecycle waiting, no zero and no administrative change; sealed generation/identity mismatch never falls back to Connect.
+- **Idempotency.** Overlapping pending reads coalesce; separate explicit requests may collect newer actual samples. Page changes never duplicate channel; after crash no automatic restoration of samples.
+
+### `Monitoring::observe(&self, server_id: Uuid) -> Result<E6::Subscription<MetricHistory, MonitoringChanged>, E6::Failure>`
+
+- **Intent.** Present actual Server history and sequenced changes with independently visible collection state.
+- **Owner.** `src/application/monitoring.rs`
+- **Reads.** CollectorBuffer, Collector, monotonic clock.
+- **Writes.** None; only expiry of ephemeral history.
+- **Preconditions.** Saved Server exists; current process monotonic time.
+- **Postconditions.** Returns one-boundary snapshot/events, explicit pending state and real gaps. Samples retain Server/metric/unit/remote time/local collection time/status. Per-series Freshness derives from local monotonic age; retention never exceeds one hour. Lag yields ResyncRequired and an actual replacement snapshot, never invented continuity.
+- **Invariants.** INV-1, INV-2.
+- **Errors.** Invalid Server/closed owner returns explicit failure, not invented empty success. Source errors remain per metric.
+- **Idempotency.** Redraw/reopen never changes collected_at or inserts a sample; observation only.
+
+### `Monitoring::quiesce(&self) -> Result<(), E6::Failure>`
+
+- **Intent.** Stop all collection and recovery before desktop shutdown.
+- **Owner.** `src/application/monitoring.rs`
+- **Reads.** Collector, retry timers, pending consumer workers, ConsumerAccess.
+- **Writes.** Collector phase and ephemeral scheduling/buffers.
+- **Preconditions.** Runtime closes new admission.
+- **Postconditions.** Invalidates timers/generations, denies new collect/refresh, stops and joins tracked consumers including late worker returns via E1 stop. Owner continues handling completions until actual joins; Stopped only after no channel/recovery work remains.
+- **Invariants.** INV-1, INV-2, INV-3, INV-4, INV-5, INV-6, INV-7, INV-8, INV-9.
+- **Errors.** Unjoined work or failed cleanup reports incomplete shutdown, retains ownership; cancellation alone never claims stop.
+- **Idempotency.** Concurrent calls join one drain; no future retry/reconnect; process exit discards history.
+
+### Invariants
+
+Planned implementation proofs below have not been run.
+
+| ID    | Statement                                                                                                                      | Scope                                              | Enforced by                                                                                 | Broken if                                                                         | Proof                                                         | First proof owner |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------- |
+| INV-1 | At most one live Collector exists per Server and page navigation never duplicates it.                                          | Monitoring, Collector                              | Server-keyed owner registry and generation-checked completions                              | Page allocates a separate scheduler/channel                                       | Future test `monitoring_actual_sources_and_single_collector`  | 01                |
+| INV-2 | Each sample retains actual Server/metric/unit and local collection context; absent or failed reads never become zero.          | MetricSample, MetricStatus, CollectorBuffer        | Typed value/status; accepted-source parser and Server/generation validation                 | Cross-Server value leaks or inaccessible source is replaced with zero             | Future test `monitoring_sources_context_and_partial_failures` | 01                |
+| INV-3 | Only Monitoring can authorize validated settings writes; Store protocol cannot persist samples.                                | SettingsCommit, Monitoring, MonitoringStoreRequest | Private SettingsCommit fields; borrowed read-only Store view; closed settings-only variants | Caller submits arbitrary settings or hidden history through generic Store         | Future test `monitoring_settings_sealed_persistence`          | 01                |
+| INV-4 | Every CPU/network delta has comparable same-continuity counters and positive measured elapsed time.                            | MetricSample, CounterBaseline                      | Checked finite arithmetic and generation/boot/record continuity validation                  | Configured interval, reset or unknown wraparound fabricates rate                  | Future test `monitoring_counter_continuity`                   | 02                |
+| INV-5 | Freshness is per metric from local monotonic collection time; error/unavailable/gaps never become new successful observations. | Freshness, MetricStatus, MetricSeries              | Derived local elapsed age and distinct value/status algebra                                 | Remote clock/redraw resets collection time or freshens unrelated metric           | Future test `monitoring_monotonic_freshness`                  | 03                |
+| INV-6 | Recovery retries only Collector channels with exponential backoff under current E1 admission, never master authentication.     | Collector                                          | Generation-bound timer tokens, authoritative feed and stop invalidation                     | Monitoring resurrects Disconnect or treats lost feed as current                   | Future test `monitoring_loss_backoff_and_disconnect`          | 03                |
+| INV-7 | Samples reside only in per-Server process-memory rings and temporal retention is at most one hour.                             | CollectorBuffer                                    | Monotonic insert/read/expiry eviction and no sample persistence variant                     | Samples reach disk or disconnected buffers retain older observations              | Future test `monitoring_retention_and_no_disk_history`        | 04                |
+| INV-8 | Active Collectors obey the effective positive configurable bound and never own terminal admission.                             | MonitoringSettings, Monitoring                     | Collector-only permits and joined surplus work before bound change success                  | Unbounded spawn or Collector holds global interactive permit                      | Future test `monitoring_concurrency_and_terminal_interaction` | 04                |
+| INV-9 | GTK alone mutates widgets; monitoring stays read-only and stops all channels/recovery before quiescence success.               | Monitoring, Collector                              | Main-context event bridge; private read protocol; stop/join completions                     | Worker accesses GTK, summary verifies mutation, or pending open outlives shutdown | Future test `monitoring_accessible_states_and_shutdown`       | 05                |
+
+### Ordered flows
+
+**Configure**
+
+1. External real ReadyOwnership, Store, Configuration, E1 ConsumerAccess and dedicated sequenced connection subscription → `Monitoring::spawn`. Scheduler starts settings-load worker while mailbox remains serviced. Actual missing settings initializes resource=5s/service=15s/disk=30s/concurrency=10; failed read/migration is error, not a default success. Buffers begin empty every process.
+2. External settings → `Monitoring::configure` validates positive representable durations/bound and unique known override IDs. Changes serialize; owned workers join any excess channels before a lower bound can be claimed effective. Actual join failure retains prior settings/ownership.
+3. Monitoring constructs private SettingsCommit only after validation. Store handles SaveSettings(SettingsCommit), reading `SettingsCommit::settings_write_view`; view grants no independent authority. Save acknowledgement precedes effective-settings success; Store failure keeps prior effective settings and reports explicit error. SQLite persists only accepted settings keys, not raw records, samples, derived values or history.
+
+**Refresh and collect**
+
+1. Actual Connected event/snapshot from dedicated E1 feed or external `Monitoring::refresh(server_id, kind)` → Server-keyed Collector registry. No usable current master → WaitingForConnection; no Collector permit → WaitingForSlot; eligible admitted slot → Collecting. Repeated Overview/Monitoring navigation reuses channel. Same-identity aliases retain their own attributed Server channels/buffers but share one E1 master.
+2. Monitoring creates CollectorSpec with explicit Server and accepted schedule/ServiceRead::Summary, without choosing the transport epoch. Owned worker calls E1 open(ConsumerTarget::Server, Collect(spec)); manager validates current existing generation and actual capabilities atomically. ConsumerOpened completion transfers actual Consumer to owner; into_consumer_parts moves ID/master/event receiver. That E1-issued channel UUID is the collection epoch; owner requires RawObservation.collector_generation == ConsumerParts.id, never a separately invented token. Late/stopped-generation results are still owned and joined, never adopted into new Collector.
+3. Fixed long-lived loop reads /proc/stat CPU counters, /proc/meminfo memory, /proc/net/dev network counters, /proc/loadavg load, /proc/uptime, filesystem statistics and uname/system context. E4-owned structured D-Bus/service semantics provide summary without sudo mutation permission; missing systemd read capability leaves Linux metrics usable. Loop does not parse human service tables or emit file payload.
+4. Resource groups use actual configured 5-second default, service 15-second default and disk 30-second default. System information occurs on successful connection or explicit system-information refresh, not assumed periodic at 5 seconds. Explicit metric refresh triggers real reads; it never stamps old sample as new.
+5. E1 private collector adapter stamps RawObservation with explicit Server, collector_generation equal to actual ConsumerParts.id, record number, boot evidence, informative remote time and collected_at = local receipt Instant; remote-provided time can never populate collected_at. Every replacement channel has a new E1-issued UUID/epoch. Owner verifies binding/sequence using CollectorBuffer.last_record_number, invalidates baselines on an unexplained stream gap, and normalizes actual finite non-delta values with explicit units and status; missing source is Unavailable, failed read Error, not zero and not another metric's value.
+6. First CPU/network observation is Unavailable. Each metric/interface has its own CounterBaseline and collected_at; unrelated metric arrivals cannot overwrite its comparison clock. Checked comparable counters in same supported generation/boot/record continuity plus positive measured local elapsed time yield finite CPU percentage/network rates; configured interval is not elapsed evidence. Legitimate observed zero is valid only after sufficient evidence. Decrease/reset, reboot, missing/dropped record, invalid interval, reconnect without comparability or unsupported wraparound/arithmetic clears affected baseline and withholds rate until new comparable evidence. No interpolation/gap-fill/inferred DOWN occurs.
+7. Actual sample enters that Server CollectorBuffer; insertion, observation and expiry scheduling evict any sample older than one hour. All rings are process-memory only; no metric_samples table, disk cache or previous-process history exists. Concurrency permits cover Collectors only; bounded streaming work yields executor time and holds no terminal admission/global interactive permit. Lowering bound is acknowledged only after excess actual joins.
+
+**Observe, recover and stop**
+
+1. `Monitoring::observe` reads actual rings, deriving per-metric Freshness from current monotonic time minus original collected_at and returns one-boundary snapshot/events. Remote clock changes never affect that age. No-data/loading, successful empty/unavailable, source error and stale retained value with pending fresh read remain distinct. Delivery lag emits ResyncRequired and requires new actual snapshot, not continuity inference.
+2. Actual channel Ended marks retained successful values Stale, invalidates unsupported counter baselines and schedules exponential channel backoff only while authoritative E1 lifecycle permits. A replacement channel uses the current Server binding and generated/trust gates; no Connect, alternate authentication, initial-delay/cap/attempt-limit policy is invented. Lost connection feed blocks current admission until an actual new E1 observe subscription/snapshot is installed.
+3. First recovered non-delta observation refreshes only its metric. First replacement delta remains Unavailable until comparable evidence. Explicit Disconnect invalidates timer/generation and joins channel, returning WaitingForConnection, not another master login. Gaps remain gaps; metrics never label a never-contacted Server offline or change Connection/Trust State.
+4. GTK consumes channels on glib::MainContext; only it touches widgets. Actual Server selection, metric navigation, refresh, Freshness and failure details remain keyboard-accessible while reads wait. Errors identify Server/metric, no administrative change by this read-only workflow, and actual available actions; link Operation only when one really exists. Service summary never serves as E4 Verifier/stabilization/Reconciliation proof.
+5. External E6 stopping admission → `Monitoring::quiesce` stores waiter, invalidates timers/new opens, launches E1 stop/join workers and keeps processing MonitoringCompletion. It joins active and late-returned consumers before Stopped; incomplete joins report failure and retain ownership. Runtime then shuts transport; no daemon or restored metric history survives process exit.
+
+## Decision
+
+Sol actor facade retains one scheduler and per-Server memory buffers; E1 remains the sole master owner.
+Private SettingsCommit and Store read projection prevent generic-write bypass.
+Retain the Terra separation between read-only observations and mutation proof; periodic summaries never verify Operations.
+Reject persistent/shared mutable metric repositories and independent monitoring authentication.
+We accept conservative Unavailable across uncertain counter continuity instead of fabricated rates.
+
+## Open questions
+
+None. Numeric Freshness thresholds, exponential-backoff tuning and fairness beyond no-terminal-starvation are implementation tuning, not invented product policies or measured guarantees.

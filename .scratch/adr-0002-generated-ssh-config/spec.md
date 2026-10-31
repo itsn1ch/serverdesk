@@ -1,5 +1,6 @@
 # Isolated Generated SSH Configuration and Static Configuration Import
-Status: ready-for-agent
+
+Status: needs-info
 Source: ADR-0002; ADR-0001 and ADR-0003 at their transport/trust boundaries; product specification v2.1 §§2.1, 4.1, 4.3–4.7, 4.10, 5.2, 6.1, 7.1, 12, 13, 14, 16, 17 and 18; GLOSSARY.md.
 
 ## Problem Statement
@@ -170,19 +171,19 @@ Preserve original files and keep re-import/diff and recursive Include import out
 
 10. **US-010: Make import and configuration failures actionable without false success**
 
-   - **Story:** As a Developer managing personal Linux Servers, I want keyboard-accessible import results and configuration errors that identify what changed and what I can do next, so that I can recover from import or generation failures without confusing partial results with success.
+- **Story:** As a Developer managing personal Linux Servers, I want keyboard-accessible import results and configuration errors that identify what changed and what I can do next, so that I can recover from import or generation failures without confusing partial results with success.
 
-   - **Basis:** Derived: product §§2.1, 12.2, 12.3, 13.2, 14 and 18.
+- **Basis:** Derived: product §§2.1, 12.2, 12.3, 13.2, 14 and 18.
 
-   - **Acceptance criteria:**
-     - **US-010-AC1:** Given the import surface and a result containing unsupported directives, when used with the keyboard, then import controls, exclusions/reasons and available error-recovery actions are reachable without a pointer.
-     - **US-010-AC2:** Given source loading/parsing or configuration generation is in progress, when the Developer continues using the application, then the workflow exposes loading/progress without blocking GTK's main thread; presentation updates are delivered through `glib::MainContext` and Tokio never directly accesses GTK widgets.
-     - **US-010-AC3:** Given the selected source has no importable settings, when parsing completes, then the view presents an accurate empty result with exclusions where applicable rather than a success claim for nonexistent Servers or an indefinite loading state.
-     - **US-010-AC4:** Given the source cannot be read or contains a value that cannot be imported, when the failure is reported, then the UI identifies the affected source/entry, explains what failed and available actions, and does not claim the rejected settings were saved or that remote changes occurred.
-     - **US-010-AC5:** Given local storage or generated-configuration creation fails, when the workflow reports its outcome, then it identifies the affected inventory/Connection Identity, accurately states what was or was not saved, exposes the appropriate storage/configuration error and does not claim a usable configuration or successful connection.
-     - **US-010-AC6:** Given configuration failure affects an already presented workflow, when it is displayed, then the error identifies affected resources, whether changes may have occurred, available actions and applicable Operation details; any prior observation remains visibly stale rather than being presented as current success.
+- **Acceptance criteria:**
+  - **US-010-AC1:** Given the import surface and a result containing unsupported directives, when used with the keyboard, then import controls, exclusions/reasons and available error-recovery actions are reachable without a pointer.
+  - **US-010-AC2:** Given source loading/parsing or configuration generation is in progress, when the Developer continues using the application, then the workflow exposes loading/progress without blocking GTK's main thread; presentation updates are delivered through `glib::MainContext` and Tokio never directly accesses GTK widgets.
+  - **US-010-AC3:** Given the selected source has no importable settings, when parsing completes, then the view presents an accurate empty result with exclusions where applicable rather than a success claim for nonexistent Servers or an indefinite loading state.
+  - **US-010-AC4:** Given the source cannot be read or contains a value that cannot be imported, when the failure is reported, then the UI identifies the affected source/entry, explains what failed and available actions, and does not claim the rejected settings were saved or that remote changes occurred.
+  - **US-010-AC5:** Given local storage or generated-configuration creation fails, when the workflow reports its outcome, then it identifies the affected inventory/Connection Identity, accurately states what was or was not saved, exposes the appropriate storage/configuration error and does not claim a usable configuration or successful connection.
+  - **US-010-AC6:** Given configuration failure affects an already presented workflow, when it is displayed, then the error identifies affected resources, whether changes may have occurred, available actions and applicable Operation details; any prior observation remains visibly stale rather than being presented as current success.
 
-   - **Dependencies:** US-005, US-006, US-008, US-009.
+- **Dependencies:** US-005, US-006, US-008, US-009.
 
 ## Implementation Decisions
 
@@ -250,3 +251,428 @@ The accepted sources do not define complete support for wildcard Host patterns, 
 Algorithm choices remain subject to actual system OpenSSH and remote-server capabilities, not a guarantee that every requested algorithm is available.
 
 No separate config publication blocker is established by these sources; implementation depends on the configuration, route and trust contracts of the connected epics.
+
+# Design
+
+## Usage
+
+1. **Inspect saved settings without a connection:** bootstrap obtains actual E6 Store and calls `Configuration::spawn(store)`. GTK asks `configuration.inventory().await?`; E1 asks `configuration.resolve(server_id).await?` before trust, then reads `inspect_resolution`, `inspect_identity` and `inspect_endpoint` as needed. No source configuration is evaluated.
+2. **Save references or explicitly import:** GTK sends `configuration.change(ConfigurationChange::SaveAuthProfile(draft)).await?`, SaveServer or Import. The environment decision blocks new Server creation until specified. Store accepts only Configuration-created InventoryCommit and reads `inventory_write_view`; presentation distinguishes committed results from exclusions and failures.
+3. **Compile an internally reserved start:** after resolve, E1 obtains E3 PreparedStart and consumes `into_prepared_start`, preserving the original resolution/reservation. It calls `configuration.compile(resolved, trust, reservation, prefixes).await?`; only the E1 private worker receives the sealed result and uses `launch_view`. Consumers retain generated fail-closed attachment policy.
+
+## Types
+
+```rust
+pub enum AuthMethod {
+    Agent { socket_reference: Option<PathBuf> },
+    Key {
+        identity_files: Vec<PathBuf>,
+        identities_only: bool,
+        agent_reference: Option<PathBuf>,
+    },
+}
+pub enum NegotiationClass { KeyAlgorithm, Cipher }
+pub struct NegotiationChoice {
+    directive: String,
+    category: NegotiationClass,
+    values: Vec<String>,
+}
+pub struct AuthProfile {
+    pub id: Uuid,
+    pub name: String,
+    pub method: AuthMethod,
+    pub negotiation: Vec<NegotiationChoice>,
+    pub created_at: SystemTime,
+}
+pub struct AuthProfileDraft {
+    pub id: Uuid,
+    pub name: String,
+    pub method: AuthMethod,
+    pub negotiation_directives: Vec<(String, String)>,
+}
+pub struct Server {
+    pub id: Uuid,
+    pub name: String,
+    pub hostname: String,
+    pub ssh_port: u16,
+    pub ssh_username: String,
+    pub auth_profile_id: Uuid,
+    pub jump_server_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
+    pub environment_discriminator: String,
+    pub tags: Vec<String>,
+    pub connect_on_startup: bool,
+    pub created_at: SystemTime,
+    pub updated_at: SystemTime,
+}
+pub struct ServerDraft {
+    pub id: Uuid,
+    pub name: String,
+    pub hostname: String,
+    pub ssh_port: u32,
+    pub ssh_username: String,
+    pub auth_profile_id: Uuid,
+    pub jump_server_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
+    pub environment_discriminator: String,
+    pub tags: Vec<String>,
+    pub connect_on_startup: bool,
+}
+pub struct AuthenticationContext {
+    agent_reference: Option<PathBuf>,
+    identity_files: Vec<PathBuf>,
+    identities_only: bool,
+    negotiation: Vec<NegotiationChoice>,
+}
+pub struct ConnectionEndpoint {
+    hostname: String,
+    port: u16,
+    ssh_username: String,
+    authentication: AuthenticationContext,
+}
+pub struct ConnectionIdentity {
+    target: ConnectionEndpoint,
+    jump_route: Vec<ConnectionEndpoint>,
+}
+pub struct InventorySnapshot {
+    pub servers: Vec<Server>,
+    pub auth_profiles: Vec<AuthProfile>,
+    pub revision: [u8; 32],
+}
+pub struct ImportExclusion {
+    pub source: PathBuf,
+    pub line: usize,
+    pub entry: Option<String>,
+    pub directive: String,
+    pub reason: String,
+}
+pub struct ImportReport {
+    pub saved_servers: Vec<Server>,
+    pub saved_auth_profiles: Vec<AuthProfile>,
+    pub imported_settings: Vec<(Uuid, Vec<String>)>,
+    pub exclusions: Vec<ImportExclusion>,
+}
+pub enum ConfigurationChange {
+    SaveServer(ServerDraft),
+    SaveAuthProfile(AuthProfileDraft),
+    Import { source: PathBuf },
+}
+pub enum ConfigurationResult {
+    ServerSaved(Server),
+    AuthProfileSaved(AuthProfile),
+    Imported(ImportReport),
+}
+pub struct Configuration { tx: mpsc::Sender<ConfigurationMessage> }
+pub(crate) struct ResolvedConnection {
+    server_id: Uuid,
+    identity: ConnectionIdentity,
+    route_server_ids: Vec<Uuid>,
+    inventory_revision: [u8; 32],
+}
+pub(crate) struct CompiledConfiguration {
+    reservation: E1::StartReservation,
+    resolved: ResolvedConnection,
+    configuration_path: PathBuf,
+    master_alias: String,
+    attachment_alias: String,
+    prefix_aliases: Vec<(E1::MasterGeneration, String)>,
+    trust: E3::TrustStart,
+}
+pub(crate) struct InventoryCommit {
+    expected_revision: [u8; 32],
+    servers: Vec<Server>,
+    auth_profiles: Vec<AuthProfile>,
+}
+pub(crate) struct InventoryWriteView<'a> {
+    pub(crate) expected_revision: &'a [u8; 32],
+    pub(crate) servers: &'a [Server],
+    pub(crate) auth_profiles: &'a [AuthProfile],
+}
+pub(crate) enum InventoryStoreRequest {
+    Read,
+    Commit(InventoryCommit),
+}
+pub(crate) enum InventoryStoreResult {
+    Snapshot(InventorySnapshot),
+    Committed(InventorySnapshot),
+}
+pub(crate) enum ConfigurationMessage {
+    Inventory { reply: E6::Reply<InventorySnapshot> },
+    Change {
+        request: ConfigurationChange,
+        reply: E6::Reply<ConfigurationResult>,
+    },
+    Resolve {
+        server_id: Uuid,
+        reply: E6::Reply<ResolvedConnection>,
+    },
+    Compile {
+        resolved: ResolvedConnection,
+        trust: E3::TrustStart,
+        reservation: E1::StartReservation,
+        prefixes: Vec<E1::MasterGeneration>,
+        reply: E6::Reply<CompiledConfiguration>,
+    },
+}
+pub(crate) struct ConnectionEndpointView<'a> {
+    pub(crate) hostname: &'a str,
+    pub(crate) port: u16,
+    pub(crate) ssh_username: &'a str,
+    pub(crate) authentication: &'a AuthenticationContext,
+}
+pub(crate) struct ConnectionIdentityView<'a> {
+    pub(crate) target: &'a ConnectionEndpoint,
+    pub(crate) jump_route: &'a [ConnectionEndpoint],
+}
+pub(crate) struct ResolvedConnectionView<'a> {
+    pub(crate) server_id: Uuid,
+    pub(crate) identity: &'a ConnectionIdentity,
+    pub(crate) route_server_ids: &'a [Uuid],
+    pub(crate) inventory_revision: &'a [u8; 32],
+}
+pub(crate) struct CompiledLaunchView<'a> {
+    pub(crate) reservation: &'a E1::StartReservation,
+    pub(crate) resolved: &'a ResolvedConnection,
+    pub(crate) configuration_path: &'a Path,
+    pub(crate) master_alias: &'a str,
+    pub(crate) attachment_alias: &'a str,
+    pub(crate) prefix_aliases: &'a [(E1::MasterGeneration, String)],
+    pub(crate) trust: &'a E3::TrustStart,
+}
+impl Configuration {
+    pub(crate) fn spawn(store: E6::Store) -> Configuration;
+
+    pub async fn inventory(
+        &self,
+    ) -> Result<InventorySnapshot, E6::Failure>;
+
+    pub async fn change(
+        &self, request: ConfigurationChange,
+    ) -> Result<ConfigurationResult, E6::Failure>;
+
+    pub(crate) async fn resolve(
+        &self, server_id: Uuid,
+    ) -> Result<ResolvedConnection, E6::Failure>;
+
+    pub(crate) async fn compile(
+        &self,
+        resolved: ResolvedConnection,
+        trust: E3::TrustStart,
+        reservation: E1::StartReservation,
+        prefixes: Vec<E1::MasterGeneration>,
+    ) -> Result<CompiledConfiguration, E6::Failure>;
+}
+impl ConnectionEndpoint {
+    pub(crate) fn inspect_endpoint(&self) -> ConnectionEndpointView<'_>;
+}
+impl ConnectionIdentity {
+    pub(crate) fn inspect_identity(&self) -> ConnectionIdentityView<'_>;
+}
+impl ResolvedConnection {
+    pub(crate) fn inspect_resolution(&self) -> ResolvedConnectionView<'_>;
+}
+impl CompiledConfiguration {
+    pub(crate) fn launch_view(&self) -> CompiledLaunchView<'_>;
+}
+impl InventoryCommit {
+    pub(crate) fn inventory_write_view(&self) -> InventoryWriteView<'_>;
+}
+```
+
+All identity fields and InventoryCommit/CompiledConfiguration authority data remain private. Immutable views have explicit readable fields; Store and launch accept wrappers, never views. StartReservation, CompiledConfiguration and TrustStart are not Clone. Identity equality/hash uses full effective target and ordered hop authentication values, excluding UUID/display/group/tags/environment; no DNS-equivalence guessing.
+
+`environment_discriminator` preserves the accepted storage field for actual existing rows without inventing enum membership. Human 02 must define exact variants/default/validation before new Server save/import is enabled. Accepted non-secret profile references/negotiation values use the existing auth_profiles/settings schema; no secret/new schema is implied. Configuration is the semantic inventory writer; E6 Store only applies its sealed validated commit. All declarations are initially introduced by ADR-0006:01 in their canonical modules; owner-method tickets below implement actual runtime production, not a type-only capability claim. GTK adapters remain private, use glib::MainContext delivery, and do not put widgets in public application signatures.
+
+## Contract
+
+### Vocabulary
+
+| Name                     | Kind   | Meaning                                                            | Source of truth                                              | Writer            |
+| ------------------------ | ------ | ------------------------------------------------------------------ | ------------------------------------------------------------ | ----------------- |
+| `AuthMethod`             | enum   | Agent or explicit non-secret key references                        | `src/domain/inventory.rs` `AuthMethod`                       | Configuration     |
+| `NegotiationClass`       | enum   | Accepted key-algorithm/cipher category                             | `src/domain/inventory.rs` `NegotiationClass`                 | Configuration     |
+| `NegotiationChoice`      | value  | Validated static setting in that category                          | `src/domain/inventory.rs` `NegotiationChoice`                | Configuration     |
+| `AuthProfile`            | entity | Named authentication references                                    | `src/domain/inventory.rs` `AuthProfile`                      | Configuration     |
+| `AuthProfileDraft`       | value  | Untrusted profile input                                            | `src/domain/inventory.rs` `AuthProfileDraft`                 | Configuration     |
+| `Server`                 | entity | Persisted inventory entry                                          | `src/domain/inventory.rs` `Server`                           | Configuration     |
+| `ServerDraft`            | value  | Untrusted inventory input                                          | `src/domain/inventory.rs` `ServerDraft`                      | Configuration     |
+| `AuthenticationContext`  | value  | Effective authentication/negotiation values                        | `src/domain/connection_identity.rs` `AuthenticationContext`  | Configuration     |
+| `ConnectionEndpoint`     | value  | Validated host, port, user and authentication                      | `src/domain/connection_identity.rs` `ConnectionEndpoint`     | Configuration     |
+| `ConnectionIdentity`     | value  | Target and complete ordered route                                  | `src/domain/connection_identity.rs` `ConnectionIdentity`     | Configuration     |
+| `InventorySnapshot`      | value  | One committed inventory revision                                   | `src/domain/inventory.rs` `InventorySnapshot`                | Configuration     |
+| `ImportExclusion`        | value  | Source location and excluded-setting reason                        | `src/domain/inventory.rs` `ImportExclusion`                  | Configuration     |
+| `ImportReport`           | value  | Committed import result                                            | `src/domain/inventory.rs` `ImportReport`                     | Configuration     |
+| `ConfigurationChange`    | enum   | Supported save/import intents                                      | `src/domain/inventory.rs` `ConfigurationChange`              | Configuration     |
+| `ConfigurationResult`    | enum   | Committed change result                                            | `src/domain/inventory.rs` `ConfigurationResult`              | Configuration     |
+| `Configuration`          | entity | Sole inventory/configuration workflow owner                        | `src/application/configuration.rs` `Configuration`           | Configuration     |
+| `ResolvedConnection`     | value  | Sealed inventory-backed identity snapshot                          | `src/domain/connection_identity.rs` `ResolvedConnection`     | Configuration     |
+| `CompiledConfiguration`  | value  | One start’s generated, checked configuration                       | `src/application/configuration.rs` `CompiledConfiguration`   | Configuration     |
+| `InventoryCommit`        | value  | Private validated expected-revision inventory write capability     | `src/application/configuration.rs` `InventoryCommit`         | Configuration     |
+| `InventoryWriteView`     | value  | Borrowed immutable Store projection of a validated inventory delta | `src/application/configuration.rs` `InventoryWriteView`      | Configuration     |
+| `InventoryStoreRequest`  | enum   | Private inventory persistence requests                             | `src/application/configuration.rs` `InventoryStoreRequest`   | Configuration     |
+| `InventoryStoreResult`   | enum   | Private committed inventory responses                              | `src/application/configuration.rs` `InventoryStoreResult`    | Configuration     |
+| `ConfigurationMessage`   | enum   | Private actor protocol                                             | `src/application/configuration.rs` `ConfigurationMessage`    | Configuration     |
+| `ConnectionEndpointView` | value  | Borrowed effective endpoint and authentication references          | `src/domain/connection_identity.rs` `ConnectionEndpointView` | Configuration     |
+| `ConnectionIdentityView` | value  | Borrowed target and complete ordered route                         | `src/domain/connection_identity.rs` `ConnectionIdentityView` | Configuration     |
+| `ResolvedConnectionView` | value  | Borrowed Server identity and relevant revision binding             | `src/domain/connection_identity.rs` `ResolvedConnectionView` | Configuration     |
+| `CompiledLaunchView`     | value  | Borrowed original reservation and generated launch material        | `src/application/configuration.rs` `CompiledLaunchView`      | Configuration     |
+| `Store`                  | entity | Sole physical primary SQLite owner                                 | `src/infrastructure/storage/mod.rs` `Store`                  | Store             |
+| `Failure`                | value  | Classified application failure                                     | `src/domain/error.rs` `Failure`                              | none (immutable)  |
+| `StartReservation`       | value  | E1-issued single-start ownership                                   | `src/application/connection_manager.rs` `StartReservation`   | ConnectionManager |
+| `MasterGeneration`       | value  | E1-issued existing master reference                                | `src/application/connection_manager.rs` `MasterGeneration`   | ConnectionManager |
+| `TrustStart`             | value  | E3-issued matching permission and snapshot                         | `src/application/trust.rs` `TrustStart`                      | TrustCore         |
+| `PreparedStart`          | value  | E3-owned handback preserving original inputs                       | `src/application/trust.rs` `PreparedStart`                   | TrustCore         |
+
+Foreign entity `Store` retains its ADR-0006 lifecycle/storage invariants; it has no independent E2 lifecycle or writer. This table records its canonical definition, not a second E2 authority.
+
+### Functions
+
+### `Configuration::spawn(store: E6::Store) -> Configuration`
+
+- **Intent:** Establish one inventory/configuration owner over actual primary storage.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** Store.
+- **Writes:** Configuration.
+- **Preconditions:** Store is open, compatible, migrated and owned by the primary.
+- **Postconditions:** Creates one serviced owner mailbox; performs no import, SSH, trust lookup or invented empty read.
+- **Invariants:** INV-1.
+- **Errors:** Subsequent requests report actual StorageError; construction never substitutes an empty inventory.
+- **Idempotency:** One composition per primary; construction does not rewrite storage.
+
+### `Configuration::inventory(&self) -> Result<InventorySnapshot, E6::Failure>`
+
+- **Intent:** Display saved Server and Auth Profile facts without connecting.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** Server, AuthProfile, InventoryStoreRequest, InventoryStoreResult.
+- **Writes:** None.
+- **Preconditions:** Configuration addresses the compatible primary Store.
+- **Postconditions:** Returns one committed revision, including preserved environment discriminators; an empty snapshot follows only a successful empty query.
+- **Invariants:** INV-1.
+- **Errors:** StorageError leaves persisted facts unchanged and never becomes an empty-success view.
+- **Idempotency:** Read-only; later calls may observe later committed revisions.
+
+### `Configuration::resolve(&self, server_id: Uuid) -> Result<ResolvedConnection, E6::Failure>`
+
+- **Intent:** Provide the complete saved structural identity before any trust or transport work.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** Server, AuthProfile, InventorySnapshot.
+- **Writes:** ResolvedConnection, ConnectionIdentity, ConnectionEndpoint, AuthenticationContext.
+- **Preconditions:** The external Server identifier exists; every saved hop/profile reference exists and its effective values validate.
+- **Postconditions:** Resolves the complete finite ordered route and non-secret authentication context; structural equality excludes display metadata; returns relevant revision without SSH, trust lookup or source evaluation.
+- **Invariants:** INV-1, INV-2.
+- **Errors:** Missing reference, invalid field, cyclic/unregistered route, ConfigurationConflict or StorageError returns no resolution; no alias/local fallback.
+- **Idempotency:** Unchanged effective content produces equal identity; original config edits cannot affect it.
+
+### `ConnectionEndpoint::inspect_endpoint(&self) -> ConnectionEndpointView<'_>`
+
+- **Intent:** Read the immutable effective endpoint and authentication references.
+- **Owner:** `src/domain/connection_identity.rs`.
+- **Reads:** ConnectionEndpoint.
+- **Writes:** None.
+- **Preconditions:** A live owner-created receiver exists.
+- **Postconditions:** Returns exact borrowed fields; cannot outlive the receiver, mutate it or construct an authority.
+- **Invariants:** INV-2.
+- **Errors:** Infallible; no I/O or allocation.
+- **Idempotency:** Repeatable read; receiver remains intact.
+
+### `ConnectionIdentity::inspect_identity(&self) -> ConnectionIdentityView<'_>`
+
+- **Intent:** Read the complete ordered identity without reconstructing it.
+- **Owner:** `src/domain/connection_identity.rs`.
+- **Reads:** ConnectionIdentity.
+- **Writes:** None.
+- **Preconditions:** A live owner-created receiver exists.
+- **Postconditions:** Returns exact borrowed fields; cannot outlive the receiver, mutate it or construct an authority.
+- **Invariants:** INV-2.
+- **Errors:** Infallible; no I/O or allocation.
+- **Idempotency:** Repeatable read; receiver remains intact.
+
+### `ResolvedConnection::inspect_resolution(&self) -> ResolvedConnectionView<'_>`
+
+- **Intent:** Read the saved Server and revision binding of a resolution.
+- **Owner:** `src/domain/connection_identity.rs`.
+- **Reads:** ResolvedConnection.
+- **Writes:** None.
+- **Preconditions:** A live owner-created receiver exists.
+- **Postconditions:** Returns exact borrowed fields; cannot outlive the receiver, mutate it or construct an authority.
+- **Invariants:** INV-2.
+- **Errors:** Infallible; no I/O or allocation.
+- **Idempotency:** Repeatable read; receiver remains intact.
+
+### `Configuration::change(&self, request: ConfigurationChange) -> Result<ConfigurationResult, E6::Failure>`
+
+- **Intent:** Commit supported reference-only connection settings and explicit static imports without executing source behavior.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** ConfigurationChange, ServerDraft, AuthProfileDraft, InventorySnapshot.
+- **Writes:** Server, AuthProfile, InventoryCommit, ConfigurationResult, ImportReport, ImportExclusion.
+- **Preconditions:** Fields and existing references validate; routes are finite/registered; human-approved environment variants/default/validation exist before new Server saves/imports.
+- **Postconditions:** Configuration alone creates a private InventoryCommit after validation; one Store transaction compares revision and persists supported data. Static Rust import accepts only HostName, Port, User, IdentityFile, IdentitiesOnly, ProxyJump and accepted key-algorithm/cipher settings; rejects dynamic/unsupported semantics with located reasons, never reads Include targets, preserves source files and known_hosts, creates no trust/SSH and defaults imported connect_on_startup to false. GTK results distinguish committed settings, exclusions, empty, loading, stale and failed states.
+- **Invariants:** INV-1, INV-2, INV-3, INV-4.
+- **Errors:** ValidationError, UnregisteredProxyRoute, ConfigurationConflict, unresolved environment UnsupportedCapability or StorageError leaves rejected changes unsaved. A parse report cannot claim uncommitted Servers. Ambiguous delivery is reported honestly, not retried automatically.
+- **Idempotency:** Same-ID/content saves do not duplicate. Each explicit import is a new snapshot import, not re-import/diff. Crash yields all-or-none transaction; inspect actual state after ambiguity.
+
+### `InventoryCommit::inventory_write_view(&self) -> InventoryWriteView<'_>`
+
+- **Intent:** Let Store read the validated inventory delta without allowing callers to mint a write request.
+- **Owner:** `src/application/configuration.rs`.
+- **Introducing ticket:** ADR-0006:01 implements only this infallible borrowed projection in the canonical Configuration module; it does not mint InventoryCommit or assume its later validation proof. E2:03 remains the sole validated runtime commit producer.
+- **Reads:** InventoryCommit.
+- **Writes:** None.
+- **Preconditions:** Store received an owner-created InventoryCommit inside InventoryStoreRequest::Commit.
+- **Postconditions:** Borrows exact expected revision, Servers and Auth Profiles; Store still requires the private wrapper, not a caller-created InventoryWriteView.
+- **Invariants:** INV-3.
+- **Errors:** Infallible; no I/O, mutation or authority allocation.
+- **Idempotency:** Repeatable borrowed read; no duplicate commit is issued.
+
+### `Configuration::compile(&self, resolved: ResolvedConnection, trust: E3::TrustStart, reservation: E1::StartReservation, prefixes: Vec<E1::MasterGeneration>) -> Result<CompiledConfiguration, E6::Failure>`
+
+- **Intent:** Produce the only launchable generated configuration for one already-trust-gated reservation.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** ResolvedConnection, TrustStart, StartReservation, MasterGeneration.
+- **Writes:** CompiledConfiguration.
+- **Preconditions:** Resolution precedes trust; trust and original reservation were returned together by PreparedStart; identity/start IDs agree; saved relevant revision remains current; prefixes exactly match the complete registered route.
+- **Postconditions:** Writes isolated generated start and fail-closed attachment aliases; forces StrictHostKeyChecking=yes, generated UserKnownHostsFile, GlobalKnownHostsFile=none, KnownHostsCommand=none, PermitLocalCommand=no, UpdateHostKeys=no, application-owned ControlMaster/ControlPath and ControlPersist=no. Runs ssh -G only on generated input, checks effective endpoint/authentication/route/security/control values, and returns a private wrapper retaining the original reservation/resolution/trust. No source directive map reaches OpenSSH.
+- **Invariants:** INV-2, INV-5; INV-6 is first established by ticket 05's private routed refinement.
+- **Errors:** ConfigurationConflict, UnregisteredProxyRoute, ValidationError, generated-file/self-check failure or StorageError returns no launchable wrapper; no user-config, stale-file, unchecked or direct-route fallback. Errors expose affected identity and honest stale/change status.
+- **Idempotency:** One reservation compiles once for one start; a new start needs new reservation and fresh trust snapshot. Crash residue is derived, never authoritative.
+
+### `CompiledConfiguration::launch_view(&self) -> CompiledLaunchView<'_>`
+
+- **Intent:** Let the transport launch worker inspect one sealed compilation while retaining its authority wrapper.
+- **Owner:** `src/application/configuration.rs`.
+- **Reads:** CompiledConfiguration.
+- **Writes:** None.
+- **Preconditions:** A live Configuration-created CompiledConfiguration is held by the E1 private launch worker.
+- **Postconditions:** Borrows original reservation, resolution, trust, aliases and path; launching accepts the wrapper, never this view or arbitrary paths.
+- **Invariants:** INV-5.
+- **Errors:** Infallible; no I/O or allocation.
+- **Idempotency:** Repeatable borrowed read; does not duplicate a start.
+
+### Invariants
+
+| ID    | Statement                                                                                                                                                                   | Scope                                               | Enforced by                                                               | Broken if                                                        | Proof                                                                     |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| INV-1 | Inventory reads return only actual committed SQLite snapshots and never perform SSH or turn storage failure into empty success.                                             | Configuration, InventorySnapshot                    | Boundary actual Store reads                                               | Error is replaced with empty inventory                           | First proof: 01; future test `configuration_inventory_real_store_failure` |
+| INV-2 | ConnectionIdentity includes every effective target/hop host, port, user and authentication context; metadata aliases cannot change equality and route resolution is finite. | ConnectionIdentity, ResolvedConnection              | Private structural construction, cycle/reference checks                   | Server UUID/name or unresolved alias substitutes for identity    | First proof: 01; future test `configuration_complete_identity_resolution` |
+| INV-3 | Only Configuration-created InventoryCommit can persist validated reference-only changes, atomically at its expected revision and without secrets.                           | Configuration, Server, AuthProfile, InventoryCommit | Private wrapper plus transactional revision/FK checks                     | Generic Store request accepts caller-created vectors             | First proof: 03; future test `configuration_atomic_reference_commit`      |
+| INV-4 | Import never evaluates commands, reads Include targets, rewrites originals, synchronizes snapshots or accepts Host Keys.                                                    | ImportReport, ImportExclusion                       | Static whitelist parser and separate trust capability                     | Match body is unconditional or known_hosts is adopted            | First proof: 03; future test `configuration_static_import_isolation`      |
+| INV-5 | A direct start/attachment is usable only from sealed CompiledConfiguration retaining its original reservation and fresh trust result under every forced security option.    | CompiledConfiguration                               | Private constructor, generated-only self-check and E1 wrapper-only launch | View or arbitrary path authorizes launch or user config executes | First proof: 04; future test `configuration_direct_generated_policy`      |
+| INV-6 | Generated routed policy represents exactly the complete registered inventory route through matching gated prefix generations, never an external alias or direct fallback.   | CompiledConfiguration, ConnectionIdentity           | Route validation and effective generated ssh -G comparison                | Unregistered route is executed, dropped or added                 | First proof: 05; future test `configuration_registered_route_policy`      |
+
+### Ordered flows
+
+1. **Saved inventory and resolution (01):** external E6:01 compatible primary Store → `Configuration::spawn`; external saved Server identifier → `Configuration::inventory` returns actual InventorySnapshot → `Configuration::resolve` constructs complete ResolvedConnection → `inspect_resolution` → `inspect_identity` → `inspect_endpoint` supply borrowed views. Persisted rows are real external inputs from Store, not fabricated seed data. No SSH/trust work occurs.
+2. **Save/import (02 → 03):** human 02 supplies environment enum/default/validation policy → external profile/Server drafts or explicitly selected source path → `Configuration::change` validates references and statically parses the whitelist, recording all exclusions → private InventoryCommit → `InventoryCommit::inventory_write_view` inside external E6:01 Store request → all-or-none expected-revision commit → ConfigurationResult and truthful GTK result. Source files remain unchanged, imported startup preference false, and no key is adopted. Missing policy disables Server creation rather than accepting arbitrary strings.
+3. **Direct compilation and attachment (01 → 04):** external E1:02 runtime control calls `resolve` first; external E1:02 reservation (declaration E6:01) plus E3:04 gate returns original owned inputs and fresh TrustStart → E1 consumes PreparedStart → `Configuration::compile` validates binding, writes forced policy and self-checks only generated input → `CompiledConfiguration::launch_view` supplies borrowed launch material while E1 retains wrapper-only launch authority. External E1:02 terminal and E1:03 SFTP/Operation/Collector exercise the same generated attachment boundary, never autonomous fallback.
+4. **Full registered route (03 → 04 → 05):** saved route/imported registered entries from change and complete identity from resolve → compile privately refines routed aliases using matching E1-issued prefix generations (external E1:04 at execution, not a prerequisite to writing configuration) → generated-only ssh -G verifies every hop and rejects UnregisteredProxyRoute → external E1:04 actual multi-hop transport reaches only the registered target. E3:04 trust still gates each prefix. Generation/storage/self-check failure yields no launch capability or fallback; GTK receives glib::MainContext loading/error/stale updates.
+
+## Decision
+
+- Select Sol's deep Configuration actor with private identity construction and sealed Store/launch boundaries.
+- Integrate original-reservation handback and immutable purpose-specific projections from repaired Sol; no raw directive-map or generic persistence authority.
+- Reject Terra's whole worker-process shape: extra ownership/failure boundaries do not improve this local configuration boundary.
+- Accept generated-only OpenSSH self-check cost for observable runtime isolation; retain environment policy as an explicit human gate.
+
+## Open questions
+
+What exact closed environment variants, default and validation apply to newly saved/imported Servers? Human ticket 02 must update this contract before that behavior is enabled.
